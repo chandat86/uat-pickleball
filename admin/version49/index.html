@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 | v47 FIX: Phân công TT lỗi "Không xác định giải đấu"; Bracket full height; Toolbar nút đồng màu xanh dương, Thủ công/Tự động sáng xanh lá khi active | v49 FIX 2026-05-28: (1) Players persist localStorage — không mất khi navigate; (2) GAS dedup tính noidung | v54 2026-05-28: (3) Mỗi nội dung có danh sách VĐV độc lập (localStorage namespace by GS URL); (4) Nút Lưu danh sách / Sửa danh sách; (5) Chế độ read-only khi đã lưu | v51: Popup bốc thăm 5s + quản lý bảng | v52: Quy tắc cố định 4 đội/bảng | v53: Lưu DanhSachVDV+DanhSachBang lên GSheets | v54: skeleton loading cards, nút xóa nội dung, pre-cache, TTL 5 phút -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v58 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v59 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -12171,7 +12171,7 @@ function openUserMo(pre=null) {
         return myListUpper.includes(tid) || owner === CODE.toUpperCase();
       })
     : _T;
-  refSel.innerHTML='<option value="">— Chọn giải —</option>'+tourns.map(t=>`<option value="${esc(String(t[0]||''))}">${esc(String(t[1]||t[0]||''))}</option>`).join('');
+  refSel.innerHTML='<option value="">— Chọn giải —</option>'+tourns.map(t=>`<option value="${esc(String(t[1]||t[0]||''))}">${esc(String(t[1]||t[0]||''))}</option>`).join('');
 
   // Build manager multi-picker
   const giaiRaw = pre?.giai || '';
@@ -12182,10 +12182,15 @@ function openUserMo(pre=null) {
   // Set ref giai — chỉ pre-select khi ĐANG SỬA và TT đã có giải
   // Thêm mới: luôn để trống (— Chọn giải —) để admin chọn thủ công
   if (pre?.status==='active' && pre?.giai) {
-    refSel.value = pre.giai;
+    // Resolve: nếu pre.giai là ID thì đổi sang tên, nếu đã là tên thì giữ nguyên
+    const giaiName = _resolveGiaiName(pre.giai);
+    refSel.value = giaiName || pre.giai;
   } else if (ROLE === 'manager' && pre) {
     // Manager sửa TT của mình → set MY_GIAI nếu TT chưa có giải
-    if(MY_GIAI_LIST.length===1) refSel.value = MY_GIAI_LIST[0]; // auto-select nếu chỉ có 1 giải
+    if(MY_GIAI_LIST.length===1) {
+      const giaiName = _resolveGiaiName(MY_GIAI_LIST[0]);
+      refSel.value = giaiName || MY_GIAI_LIST[0]; // auto-select nếu chỉ có 1 giải
+    }
   } else {
     refSel.value = ''; // mặc định trống
   }
