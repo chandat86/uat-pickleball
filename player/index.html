@@ -1,0 +1,1577 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
+<title>Pickleball v2.4— Xem Giải Đấu</title>
+<style>
+/* system font - no import needed */
+:root{
+  --bg:#07101e;--bg2:#0d1b30;--bg3:#122040;--bg4:#172848;
+  --bdr:#1c3456;--bdr2:#254878;--bdr3:#2e5a94;
+  --ac:#0ea5e9;--ac2:#38bdf8;--ac3:#0284c7;
+  --gn:#22c55e;--gn2:#16a34a;--or:#f59e0b;
+  --rd:#ef4444;--pu:#a855f7;--cy:#06b6d4;
+  --tx:#e8f0fe;--tx2:#94a3b8;--tx3:#64748b;--tx4:#475569;
+  --fn:-apple-system,'Segoe UI',system-ui,Arial,sans-serif;--fh:-apple-system,'Segoe UI',system-ui,Arial,sans-serif;
+  --r:10px;--r2:14px;--shadow:0 4px 24px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%}
+body{font-family:var(--fn);background:var(--bg);color:var(--tx);min-height:100vh;overflow-x:hidden;
+  background-image:radial-gradient(ellipse 120% 60% at 50% -20%,rgba(14,165,233,.08),transparent 60%)}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--bdr3);border-radius:2px}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes liveDot{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.5);opacity:.5}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── LOGIN ── */
+#login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:20px}
+.login-wrap{width:100%;max-width:400px;animation:fadeUp .4s ease}
+.login-logo{text-align:center;margin-bottom:28px}
+.logo-icon{width:72px;height:72px;margin:0 auto 12px;background:linear-gradient(135deg,#0ea5e9,#22c55e);
+  border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:36px;
+  box-shadow:0 8px 32px rgba(14,165,233,.4)}
+.logo-title{font-family:var(--fh);font-size:13px;font-weight:800;letter-spacing:3px;color:var(--ac);text-transform:uppercase}
+.logo-sub{font-family:var(--fh);font-size:24px;font-weight:900;color:var(--tx);letter-spacing:.5px;margin-top:3px}
+.logo-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(34,197,94,.12);color:var(--gn);
+  border:1px solid rgba(34,197,94,.25);font-size:10px;font-weight:800;letter-spacing:2px;
+  padding:3px 10px;border-radius:20px;text-transform:uppercase;margin-top:6px}
+.login-card{background:var(--bg2);border:1px solid var(--bdr2);border-radius:20px;
+  padding:28px 24px;box-shadow:var(--shadow),0 0 0 1px rgba(14,165,233,.05)}
+.login-card h3{font-family:var(--fh);font-size:20px;font-weight:800;margin-bottom:4px}
+.login-card p{font-size:12px;color:var(--tx3);margin-bottom:20px}
+.fl{font-size:11px;font-weight:700;color:var(--tx3);letter-spacing:.8px;text-transform:uppercase;display:block;margin-bottom:5px}
+.fi{width:100%;padding:12px 14px;background:var(--bg3);border:1.5px solid var(--bdr2);
+  border-radius:var(--r);color:var(--tx);font-family:var(--fn);font-size:15px;outline:none;
+  transition:border-color .15s,box-shadow .15s;margin-bottom:14px}
+.fi:focus{border-color:var(--ac);box-shadow:0 0 0 3px rgba(14,165,233,.12)}
+.btn-login{width:100%;padding:14px;font-family:var(--fh);font-size:16px;font-weight:800;
+  background:linear-gradient(135deg,var(--ac3),var(--ac));color:#fff;border:none;
+  border-radius:var(--r);cursor:pointer;transition:opacity .15s,transform .1s;
+  box-shadow:0 4px 16px rgba(14,165,233,.35)}
+.btn-login:active{transform:scale(.98);opacity:.9}
+.btn-login:disabled{opacity:.5;cursor:not-allowed}
+.login-err{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);border-radius:8px;
+  padding:10px 14px;font-size:13px;color:#fca5a5;margin-top:12px;display:none}
+
+/* ── TOPBAR ── */
+#topbar{position:sticky;top:0;z-index:100;background:rgba(7,16,30,.96);backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--bdr);display:flex;align-items:center;padding:0 14px;height:54px;gap:10px}
+.tb-logo{font-family:var(--fh);font-size:18px;font-weight:900;color:var(--ac);flex-shrink:0}
+.tb-sep{width:1px;height:22px;background:var(--bdr);flex-shrink:0}
+.tb-giai{flex:1;min-width:0}
+.tb-gname{font-family:var(--fh);font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tb-gsub{font-size:11px;color:var(--tx3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tb-live-badge{display:none;align-items:center;gap:5px;font-size:11px;font-weight:800;color:var(--or);
+  background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.25);padding:4px 9px;border-radius:20px;flex-shrink:0}
+.tb-live-badge .dot{width:6px;height:6px;background:var(--or);border-radius:50%;animation:liveDot 1s infinite}
+.tb-logout{background:none;border:1px solid var(--bdr);border-radius:8px;padding:5px 10px;
+  color:var(--tx3);font-size:12px;cursor:pointer;font-family:var(--fn);flex-shrink:0}
+.tb-logout:hover{color:var(--tx);border-color:var(--bdr2)}
+
+/* ── NAV ── */
+#navtabs{display:flex;border-bottom:1px solid var(--bdr);background:var(--bg2);overflow-x:auto;scrollbar-width:none;
+  position:sticky;top:54px;z-index:90}
+#navtabs::-webkit-scrollbar{display:none}
+.ntab{padding:11px 18px;font-family:var(--fh);font-size:14px;font-weight:700;border:none;
+  background:transparent;color:var(--tx3);cursor:pointer;white-space:nowrap;
+  border-bottom:2.5px solid transparent;margin-bottom:-1px;transition:color .15s;
+  display:flex;align-items:center;gap:6px;flex-shrink:0}
+.ntab:hover{color:var(--tx)}
+.ntab.on{color:var(--ac);border-bottom-color:var(--ac)}
+
+/* ── ND FILTER ── */
+#nd-filter-bar{background:var(--bg2);border-bottom:1px solid var(--bdr);display:none;
+  gap:6px;padding:8px 14px;overflow-x:auto;scrollbar-width:none}
+#nd-filter-bar::-webkit-scrollbar{display:none}
+.nd-chip{padding:5px 14px;font-size:12px;font-weight:700;border-radius:20px;white-space:nowrap;
+  border:1.5px solid var(--bdr2);background:transparent;color:var(--tx3);cursor:pointer;
+  font-family:var(--fn);transition:all .15s;flex-shrink:0}
+.nd-chip.on{background:var(--ac3);border-color:var(--ac);color:#fff}
+
+/* ── REFRESH BAR ── */
+#rbar{background:var(--bg2);border-bottom:1px solid var(--bdr);display:flex;align-items:center;
+  justify-content:space-between;padding:7px 14px;position:sticky;top:94px;z-index:80}
+.update-time{font-size:11px;color:var(--tx3)}
+.rfbtn{display:flex;align-items:center;gap:5px;padding:5px 11px;background:rgba(14,165,233,.1);
+  border:1px solid rgba(14,165,233,.2);border-radius:8px;color:var(--ac);font-size:11px;
+  font-weight:700;cursor:pointer;font-family:var(--fn)}
+.rfbtn:hover{background:rgba(14,165,233,.2)}
+.rfbtn:disabled{opacity:.5;cursor:not-allowed}
+
+/* ── DEBUG ── */
+#debug-info{display:none;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);
+  padding:8px 14px;font-size:11px;color:#fca5a5;font-family:monospace;line-height:1.6}
+
+/* ── MAIN ── */
+#main{padding:12px 14px;max-width:1100px;margin:0 auto}
+.page{display:none}.page.on{display:block}
+
+/* ── SPIN ── */
+.spin-wrap{display:flex;justify-content:center;padding:48px}
+.spin{display:inline-block;width:28px;height:28px;border:3px solid var(--bdr2);
+  border-top-color:var(--ac);border-radius:50%;animation:spin .7s linear infinite}
+
+/* ── EMPTY ── */
+.empty-state{text-align:center;padding:56px 20px;color:var(--tx3)}
+.empty-icon{font-size:48px;margin-bottom:12px;opacity:.5}
+.empty-msg{font-size:15px;font-family:var(--fh);font-weight:700}
+.empty-sub{font-size:12px;margin-top:6px;opacity:.7}
+
+/* ══ LIVE CARDS ══ */
+.live-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+@media(max-width:500px){.live-grid{grid-template-columns:1fr}}
+
+.live-card{background:var(--bg2);border:1px solid var(--bdr2);border-radius:var(--r2);
+  overflow:hidden;border-top:3px solid var(--or);transition:transform .15s,box-shadow .15s;
+  animation:fadeUp .3s ease}
+.live-card:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,0,0,.4)}
+.lc-hdr{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;
+  background:rgba(245,158,11,.07);border-bottom:1px solid rgba(245,158,11,.12)}
+.lc-live-badge{display:flex;align-items:center;gap:4px;font-size:10px;font-weight:800;
+  color:var(--or);letter-spacing:1px;background:rgba(245,158,11,.12);padding:3px 8px;border-radius:20px}
+.lc-live-badge .dot{width:5px;height:5px;background:var(--or);border-radius:50%;animation:liveDot 1s infinite}
+.lc-meta{font-size:11px;color:var(--tx3);font-weight:600}
+.lc-body{padding:14px 12px}
+.lc-scoreboard{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center}
+.lc-team{text-align:center}
+.lc-team-name{font-family:var(--fh);font-size:15px;font-weight:800;line-height:1.2;margin-bottom:6px}
+.lc-serve{font-size:10px;color:var(--or);font-weight:700;margin-top:2px;height:14px}
+.lc-score-wrap{text-align:center}
+.lc-num{font-family:var(--fh);font-size:52px;font-weight:900;line-height:1;
+  background:linear-gradient(135deg,#fff,var(--ac2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.lc-num.win{background:linear-gradient(135deg,var(--gn),#86efac);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.lc-dash{font-family:var(--fh);font-size:14px;color:var(--tx3);margin:0 2px}
+.lc-game{font-size:10px;color:var(--tx3);margin-top:4px;font-weight:600}
+.lc-ftr{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;
+  border-top:1px solid var(--bdr);background:rgba(0,0,0,.15)}
+.lc-court{font-size:11px;color:var(--ac);font-weight:700}
+.lc-round-tag{font-size:11px;color:var(--or);font-weight:600}
+
+/* ══ BẢNG ĐẤU (SCHEDULE) ══ */
+.bang-card{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);
+  overflow:hidden;margin-bottom:10px;animation:fadeUp .25s ease}
+.bang-head{display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;
+  user-select:none;transition:background .12s;border-bottom:1px solid var(--bdr)}
+.bang-head:hover{background:var(--bg3)}
+.bang-head-title{font-family:var(--fh);font-size:16px;font-weight:800;flex:1}
+.bang-head-meta{font-size:11px;color:var(--tx3)}
+.bang-chevron{font-size:13px;color:var(--tx3);transition:transform .2s;flex-shrink:0}
+.bang-chevron.open{transform:rotate(180deg)}
+.bang-body{display:none}
+.bang-body.open{display:block}
+
+/* trận trong bảng */
+.match-row{display:grid;grid-template-columns:1fr auto 1fr;gap:6px;align-items:center;
+  padding:10px 14px;border-bottom:1px solid rgba(27,50,85,.5);transition:background .1s}
+.match-row:last-child{border-bottom:none}
+.match-row:hover{background:rgba(255,255,255,.03)}
+.match-row.live{background:rgba(245,158,11,.05);border-left:3px solid var(--or)}
+.match-row.done{opacity:.85}
+.mr-team{font-size:13px;font-weight:600;color:var(--tx);line-height:1.3}
+.mr-team.right{text-align:right}
+.mr-team.winner{color:var(--gn);font-weight:800}
+.mr-mid{text-align:center;min-width:70px}
+.mr-score{font-family:var(--fh);font-size:22px;font-weight:900;color:var(--tx);letter-spacing:1px;line-height:1}
+.mr-score .w{color:var(--gn)}
+.mr-vs{font-size:11px;font-weight:700;color:var(--tx3);letter-spacing:1px}
+.mr-info{font-size:10px;color:var(--tx3);margin-top:3px;line-height:1.3}
+.live-pill{display:inline-flex;align-items:center;gap:3px;background:rgba(245,158,11,.15);
+  color:var(--or);font-size:9px;font-weight:800;letter-spacing:.5px;padding:2px 6px;
+  border-radius:4px;margin-top:2px}
+.live-pill .dot{width:4px;height:4px;background:var(--or);border-radius:50%;animation:liveDot 1s infinite}
+
+/* ══ BXH ══ */
+.bxh-card{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);
+  overflow:hidden;margin-bottom:10px;animation:fadeUp .25s ease}
+.bxh-head{display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;
+  user-select:none;transition:background .12s;border-bottom:1px solid var(--bdr)}
+.bxh-head:hover{background:var(--bg3)}
+.bxh-bang{font-family:var(--fh);font-size:16px;font-weight:800;flex:1}
+.bxh-meta{font-size:11px;color:var(--tx3)}
+.bxh-arrow{font-size:13px;color:var(--tx3);transition:transform .2s}
+.bxh-arrow.open{transform:rotate(180deg)}
+.bxh-body{display:none}
+.bxh-body.open{display:block}
+.bxh-tbl{width:100%;border-collapse:collapse;font-size:13px}
+.bxh-tbl th{padding:7px 10px;font-size:10px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;
+  color:var(--tx3);text-align:center;background:rgba(0,0,0,.2);border-bottom:1px solid var(--bdr)}
+.bxh-tbl th:first-child,.bxh-tbl td:first-child{text-align:left;padding-left:14px;width:26px}
+.bxh-tbl th:nth-child(2),.bxh-tbl td:nth-child(2){text-align:left}
+.bxh-tbl td{padding:9px 10px;border-bottom:1px solid rgba(27,50,85,.5);text-align:center;vertical-align:middle}
+.bxh-tbl tr:last-child td{border-bottom:none}
+.bxh-tbl tr.adv td{background:rgba(34,197,94,.05)}
+.rank-badge{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;
+  border-radius:6px;font-weight:900;font-size:12px;font-family:var(--fh)}
+.rank-badge.r1{background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#000}
+.rank-badge.r2{background:linear-gradient(135deg,#94a3b8,#cbd5e1);color:#000}
+.rank-badge.r3{background:linear-gradient(135deg,#b45309,#d97706);color:#fff}
+.rank-badge.rn{background:var(--bg3);color:var(--tx3)}
+.bxh-team{font-weight:600;color:var(--tx);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px}
+.adv-tag{font-size:10px;color:var(--gn);font-weight:700;margin-left:3px}
+.w-badge{background:rgba(34,197,94,.15);color:var(--gn);font-weight:700;padding:2px 6px;border-radius:10px;font-size:11px}
+.l-badge{background:rgba(239,68,68,.1);color:var(--rd);font-weight:700;padding:2px 6px;border-radius:10px;font-size:11px}
+
+/* ── SECTION LABEL ── */
+.sec-label{font-family:var(--fh);font-size:11px;font-weight:800;letter-spacing:1.5px;
+  text-transform:uppercase;padding:12px 0 6px;display:flex;align-items:center;gap:6px}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:var(--bg3);border:1px solid var(--bdr2);border-radius:10px;
+  padding:10px 18px;font-size:13px;color:var(--tx);z-index:999;opacity:0;
+  pointer-events:none;transition:all .25s;white-space:nowrap;box-shadow:var(--shadow)}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media(min-width:768px){
+  .live-grid{grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
+  .lc-num{font-size:62px}
+  .mr-team{font-size:14px}
+  #main{padding:16px 20px}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-wrap">
+    <div class="login-logo">
+      <div class="logo-icon">🏓</div>
+      <div class="logo-title">Referee Pickleball</div>
+      <div class="logo-sub">DA NANG ®</div>
+      <div class="logo-badge">👁 XEM GIẢI ĐẤU</div>
+    </div>
+    <div class="login-card">
+      <h3>Đăng nhập</h3>
+      <p>Nhập số điện thoại được cấp để xem giải đấu</p>
+      <label class="fl" style="display:none">Địa chỉ hệ thống</label>
+      <input class="fi" id="gs-url" autocomplete="off" style="display:none"
+        value="https://script.google.com/macros/s/AKfycbyLujKd3ONX6RZffuMaHSWKgGCGN6k6dAwp3kEEw05Shs6u4jctSpwe6-B7tw8yTCKL/exec">
+      <label class="fl">Số điện thoại / Mã đăng nhập</label>
+      <input class="fi" id="login-id" placeholder="0901234567" inputmode="tel" autocomplete="off"
+        onkeydown="if(event.key==='Enter')doLogin()">
+      <div id="login-err" class="login-err"></div>
+      <button class="btn-login" id="login-btn" onclick="doLogin()">Đăng nhập →</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" style="display:none">
+  <div id="topbar">
+    <div class="tb-logo">🏓 PB</div>
+    <div class="tb-sep"></div>
+    <div class="tb-giai">
+      <div class="tb-gname" id="tb-gname">—</div>
+      <div class="tb-gsub" id="tb-gsub">—</div>
+    </div>
+    <div class="tb-live-badge" id="tb-live"><div class="dot"></div>LIVE</div>
+    <button class="tb-logout" onclick="doLogout()">Thoát</button>
+  </div>
+
+  <div id="navtabs">
+    <button class="ntab on" data-tab="live" onclick="switchTab('live')">🔴 Đang đấu</button>
+    <button class="ntab" data-tab="schedule" onclick="switchTab('schedule')">📋 Lịch đấu</button>
+    <button class="ntab" data-tab="standings" onclick="switchTab('standings')">🏅 BXH</button>
+  </div>
+
+  <div id="nd-filter-bar"></div>
+
+  <div id="rbar">
+    <span class="update-time" id="update-time">—</span>
+    <button class="rfbtn" id="rf-btn" onclick="refreshAll()">↻ Làm mới</button>
+  </div>
+
+  <div id="debug-info"></div>
+
+  <div id="main">
+    <div class="page on" id="tab-live"><div id="live-content"><div class="spin-wrap"><div class="spin"></div></div></div></div>
+    <div class="page" id="tab-schedule"><div id="schedule-content"><div class="spin-wrap"><div class="spin"></div></div></div></div>
+    <div class="page" id="tab-standings"><div id="standings-content"><div class="spin-wrap"><div class="spin"></div></div></div></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ══ CONFIG ══
+const GAS_URL = '<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
+<title>Pickleball v2.4— Xem Giải Đấu</title>
+<style>
+/* system font - no import needed */
+:root{
+  --bg:#07101e;--bg2:#0d1b30;--bg3:#122040;--bg4:#172848;
+  --bdr:#1c3456;--bdr2:#254878;--bdr3:#2e5a94;
+  --ac:#0ea5e9;--ac2:#38bdf8;--ac3:#0284c7;
+  --gn:#22c55e;--gn2:#16a34a;--or:#f59e0b;
+  --rd:#ef4444;--pu:#a855f7;--cy:#06b6d4;
+  --tx:#e8f0fe;--tx2:#94a3b8;--tx3:#64748b;--tx4:#475569;
+  --fn:-apple-system,'Segoe UI',system-ui,Arial,sans-serif;--fh:-apple-system,'Segoe UI',system-ui,Arial,sans-serif;
+  --r:10px;--r2:14px;--shadow:0 4px 24px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%}
+body{font-family:var(--fn);background:var(--bg);color:var(--tx);min-height:100vh;overflow-x:hidden;
+  background-image:radial-gradient(ellipse 120% 60% at 50% -20%,rgba(14,165,233,.08),transparent 60%)}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--bdr3);border-radius:2px}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes liveDot{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.5);opacity:.5}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── LOGIN ── */
+#login-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:20px}
+.login-wrap{width:100%;max-width:400px;animation:fadeUp .4s ease}
+.login-logo{text-align:center;margin-bottom:28px}
+.logo-icon{width:72px;height:72px;margin:0 auto 12px;background:linear-gradient(135deg,#0ea5e9,#22c55e);
+  border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:36px;
+  box-shadow:0 8px 32px rgba(14,165,233,.4)}
+.logo-title{font-family:var(--fh);font-size:13px;font-weight:800;letter-spacing:3px;color:var(--ac);text-transform:uppercase}
+.logo-sub{font-family:var(--fh);font-size:24px;font-weight:900;color:var(--tx);letter-spacing:.5px;margin-top:3px}
+.logo-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(34,197,94,.12);color:var(--gn);
+  border:1px solid rgba(34,197,94,.25);font-size:10px;font-weight:800;letter-spacing:2px;
+  padding:3px 10px;border-radius:20px;text-transform:uppercase;margin-top:6px}
+.login-card{background:var(--bg2);border:1px solid var(--bdr2);border-radius:20px;
+  padding:28px 24px;box-shadow:var(--shadow),0 0 0 1px rgba(14,165,233,.05)}
+.login-card h3{font-family:var(--fh);font-size:20px;font-weight:800;margin-bottom:4px}
+.login-card p{font-size:12px;color:var(--tx3);margin-bottom:20px}
+.fl{font-size:11px;font-weight:700;color:var(--tx3);letter-spacing:.8px;text-transform:uppercase;display:block;margin-bottom:5px}
+.fi{width:100%;padding:12px 14px;background:var(--bg3);border:1.5px solid var(--bdr2);
+  border-radius:var(--r);color:var(--tx);font-family:var(--fn);font-size:15px;outline:none;
+  transition:border-color .15s,box-shadow .15s;margin-bottom:14px}
+.fi:focus{border-color:var(--ac);box-shadow:0 0 0 3px rgba(14,165,233,.12)}
+.btn-login{width:100%;padding:14px;font-family:var(--fh);font-size:16px;font-weight:800;
+  background:linear-gradient(135deg,var(--ac3),var(--ac));color:#fff;border:none;
+  border-radius:var(--r);cursor:pointer;transition:opacity .15s,transform .1s;
+  box-shadow:0 4px 16px rgba(14,165,233,.35)}
+.btn-login:active{transform:scale(.98);opacity:.9}
+.btn-login:disabled{opacity:.5;cursor:not-allowed}
+.login-err{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);border-radius:8px;
+  padding:10px 14px;font-size:13px;color:#fca5a5;margin-top:12px;display:none}
+
+/* ── TOPBAR ── */
+#topbar{position:sticky;top:0;z-index:100;background:rgba(7,16,30,.96);backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--bdr);display:flex;align-items:center;padding:0 14px;height:54px;gap:10px}
+.tb-logo{font-family:var(--fh);font-size:18px;font-weight:900;color:var(--ac);flex-shrink:0}
+.tb-sep{width:1px;height:22px;background:var(--bdr);flex-shrink:0}
+.tb-giai{flex:1;min-width:0}
+.tb-gname{font-family:var(--fh);font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tb-gsub{font-size:11px;color:var(--tx3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tb-live-badge{display:none;align-items:center;gap:5px;font-size:11px;font-weight:800;color:var(--or);
+  background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.25);padding:4px 9px;border-radius:20px;flex-shrink:0}
+.tb-live-badge .dot{width:6px;height:6px;background:var(--or);border-radius:50%;animation:liveDot 1s infinite}
+.tb-logout{background:none;border:1px solid var(--bdr);border-radius:8px;padding:5px 10px;
+  color:var(--tx3);font-size:12px;cursor:pointer;font-family:var(--fn);flex-shrink:0}
+.tb-logout:hover{color:var(--tx);border-color:var(--bdr2)}
+
+/* ── NAV ── */
+#navtabs{display:flex;border-bottom:1px solid var(--bdr);background:var(--bg2);overflow-x:auto;scrollbar-width:none;
+  position:sticky;top:54px;z-index:90}
+#navtabs::-webkit-scrollbar{display:none}
+.ntab{padding:11px 18px;font-family:var(--fh);font-size:14px;font-weight:700;border:none;
+  background:transparent;color:var(--tx3);cursor:pointer;white-space:nowrap;
+  border-bottom:2.5px solid transparent;margin-bottom:-1px;transition:color .15s;
+  display:flex;align-items:center;gap:6px;flex-shrink:0}
+.ntab:hover{color:var(--tx)}
+.ntab.on{color:var(--ac);border-bottom-color:var(--ac)}
+
+/* ── ND FILTER ── */
+#nd-filter-bar{background:var(--bg2);border-bottom:1px solid var(--bdr);display:none;
+  gap:6px;padding:8px 14px;overflow-x:auto;scrollbar-width:none}
+#nd-filter-bar::-webkit-scrollbar{display:none}
+.nd-chip{padding:5px 14px;font-size:12px;font-weight:700;border-radius:20px;white-space:nowrap;
+  border:1.5px solid var(--bdr2);background:transparent;color:var(--tx3);cursor:pointer;
+  font-family:var(--fn);transition:all .15s;flex-shrink:0}
+.nd-chip.on{background:var(--ac3);border-color:var(--ac);color:#fff}
+
+/* ── REFRESH BAR ── */
+#rbar{background:var(--bg2);border-bottom:1px solid var(--bdr);display:flex;align-items:center;
+  justify-content:space-between;padding:7px 14px;position:sticky;top:94px;z-index:80}
+.update-time{font-size:11px;color:var(--tx3)}
+.rfbtn{display:flex;align-items:center;gap:5px;padding:5px 11px;background:rgba(14,165,233,.1);
+  border:1px solid rgba(14,165,233,.2);border-radius:8px;color:var(--ac);font-size:11px;
+  font-weight:700;cursor:pointer;font-family:var(--fn)}
+.rfbtn:hover{background:rgba(14,165,233,.2)}
+.rfbtn:disabled{opacity:.5;cursor:not-allowed}
+
+/* ── DEBUG ── */
+#debug-info{display:none;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);
+  padding:8px 14px;font-size:11px;color:#fca5a5;font-family:monospace;line-height:1.6}
+
+/* ── MAIN ── */
+#main{padding:12px 14px;max-width:1100px;margin:0 auto}
+.page{display:none}.page.on{display:block}
+
+/* ── SPIN ── */
+.spin-wrap{display:flex;justify-content:center;padding:48px}
+.spin{display:inline-block;width:28px;height:28px;border:3px solid var(--bdr2);
+  border-top-color:var(--ac);border-radius:50%;animation:spin .7s linear infinite}
+
+/* ── EMPTY ── */
+.empty-state{text-align:center;padding:56px 20px;color:var(--tx3)}
+.empty-icon{font-size:48px;margin-bottom:12px;opacity:.5}
+.empty-msg{font-size:15px;font-family:var(--fh);font-weight:700}
+.empty-sub{font-size:12px;margin-top:6px;opacity:.7}
+
+/* ══ LIVE CARDS ══ */
+.live-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+@media(max-width:500px){.live-grid{grid-template-columns:1fr}}
+
+.live-card{background:var(--bg2);border:1px solid var(--bdr2);border-radius:var(--r2);
+  overflow:hidden;border-top:3px solid var(--or);transition:transform .15s,box-shadow .15s;
+  animation:fadeUp .3s ease}
+.live-card:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,0,0,.4)}
+.lc-hdr{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;
+  background:rgba(245,158,11,.07);border-bottom:1px solid rgba(245,158,11,.12)}
+.lc-live-badge{display:flex;align-items:center;gap:4px;font-size:10px;font-weight:800;
+  color:var(--or);letter-spacing:1px;background:rgba(245,158,11,.12);padding:3px 8px;border-radius:20px}
+.lc-live-badge .dot{width:5px;height:5px;background:var(--or);border-radius:50%;animation:liveDot 1s infinite}
+.lc-meta{font-size:11px;color:var(--tx3);font-weight:600}
+.lc-body{padding:14px 12px}
+.lc-scoreboard{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center}
+.lc-team{text-align:center}
+.lc-team-name{font-family:var(--fh);font-size:15px;font-weight:800;line-height:1.2;margin-bottom:6px}
+.lc-serve{font-size:10px;color:var(--or);font-weight:700;margin-top:2px;height:14px}
+.lc-score-wrap{text-align:center}
+.lc-num{font-family:var(--fh);font-size:52px;font-weight:900;line-height:1;
+  background:linear-gradient(135deg,#fff,var(--ac2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.lc-num.win{background:linear-gradient(135deg,var(--gn),#86efac);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.lc-dash{font-family:var(--fh);font-size:14px;color:var(--tx3);margin:0 2px}
+.lc-game{font-size:10px;color:var(--tx3);margin-top:4px;font-weight:600}
+.lc-ftr{display:flex;align-items:center;justify-content:space-between;padding:7px 12px;
+  border-top:1px solid var(--bdr);background:rgba(0,0,0,.15)}
+.lc-court{font-size:11px;color:var(--ac);font-weight:700}
+.lc-round-tag{font-size:11px;color:var(--or);font-weight:600}
+
+/* ══ BẢNG ĐẤU (SCHEDULE) ══ */
+.bang-card{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);
+  overflow:hidden;margin-bottom:10px;animation:fadeUp .25s ease}
+.bang-head{display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;
+  user-select:none;transition:background .12s;border-bottom:1px solid var(--bdr)}
+.bang-head:hover{background:var(--bg3)}
+.bang-head-title{font-family:var(--fh);font-size:16px;font-weight:800;flex:1}
+.bang-head-meta{font-size:11px;color:var(--tx3)}
+.bang-chevron{font-size:13px;color:var(--tx3);transition:transform .2s;flex-shrink:0}
+.bang-chevron.open{transform:rotate(180deg)}
+.bang-body{display:none}
+.bang-body.open{display:block}
+
+/* trận trong bảng */
+.match-row{display:grid;grid-template-columns:1fr auto 1fr;gap:6px;align-items:center;
+  padding:10px 14px;border-bottom:1px solid rgba(27,50,85,.5);transition:background .1s}
+.match-row:last-child{border-bottom:none}
+.match-row:hover{background:rgba(255,255,255,.03)}
+.match-row.live{background:rgba(245,158,11,.05);border-left:3px solid var(--or)}
+.match-row.done{opacity:.85}
+.mr-team{font-size:13px;font-weight:600;color:var(--tx);line-height:1.3}
+.mr-team.right{text-align:right}
+.mr-team.winner{color:var(--gn);font-weight:800}
+.mr-mid{text-align:center;min-width:70px}
+.mr-score{font-family:var(--fh);font-size:22px;font-weight:900;color:var(--tx);letter-spacing:1px;line-height:1}
+.mr-score .w{color:var(--gn)}
+.mr-vs{font-size:11px;font-weight:700;color:var(--tx3);letter-spacing:1px}
+.mr-info{font-size:10px;color:var(--tx3);margin-top:3px;line-height:1.3}
+.live-pill{display:inline-flex;align-items:center;gap:3px;background:rgba(245,158,11,.15);
+  color:var(--or);font-size:9px;font-weight:800;letter-spacing:.5px;padding:2px 6px;
+  border-radius:4px;margin-top:2px}
+.live-pill .dot{width:4px;height:4px;background:var(--or);border-radius:50%;animation:liveDot 1s infinite}
+
+/* ══ BXH ══ */
+.bxh-card{background:var(--bg2);border:1px solid var(--bdr);border-radius:var(--r2);
+  overflow:hidden;margin-bottom:10px;animation:fadeUp .25s ease}
+.bxh-head{display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;
+  user-select:none;transition:background .12s;border-bottom:1px solid var(--bdr)}
+.bxh-head:hover{background:var(--bg3)}
+.bxh-bang{font-family:var(--fh);font-size:16px;font-weight:800;flex:1}
+.bxh-meta{font-size:11px;color:var(--tx3)}
+.bxh-arrow{font-size:13px;color:var(--tx3);transition:transform .2s}
+.bxh-arrow.open{transform:rotate(180deg)}
+.bxh-body{display:none}
+.bxh-body.open{display:block}
+.bxh-tbl{width:100%;border-collapse:collapse;font-size:13px}
+.bxh-tbl th{padding:7px 10px;font-size:10px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;
+  color:var(--tx3);text-align:center;background:rgba(0,0,0,.2);border-bottom:1px solid var(--bdr)}
+.bxh-tbl th:first-child,.bxh-tbl td:first-child{text-align:left;padding-left:14px;width:26px}
+.bxh-tbl th:nth-child(2),.bxh-tbl td:nth-child(2){text-align:left}
+.bxh-tbl td{padding:9px 10px;border-bottom:1px solid rgba(27,50,85,.5);text-align:center;vertical-align:middle}
+.bxh-tbl tr:last-child td{border-bottom:none}
+.bxh-tbl tr.adv td{background:rgba(34,197,94,.05)}
+.rank-badge{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;
+  border-radius:6px;font-weight:900;font-size:12px;font-family:var(--fh)}
+.rank-badge.r1{background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#000}
+.rank-badge.r2{background:linear-gradient(135deg,#94a3b8,#cbd5e1);color:#000}
+.rank-badge.r3{background:linear-gradient(135deg,#b45309,#d97706);color:#fff}
+.rank-badge.rn{background:var(--bg3);color:var(--tx3)}
+.bxh-team{font-weight:600;color:var(--tx);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px}
+.adv-tag{font-size:10px;color:var(--gn);font-weight:700;margin-left:3px}
+.w-badge{background:rgba(34,197,94,.15);color:var(--gn);font-weight:700;padding:2px 6px;border-radius:10px;font-size:11px}
+.l-badge{background:rgba(239,68,68,.1);color:var(--rd);font-weight:700;padding:2px 6px;border-radius:10px;font-size:11px}
+
+/* ── SECTION LABEL ── */
+.sec-label{font-family:var(--fh);font-size:11px;font-weight:800;letter-spacing:1.5px;
+  text-transform:uppercase;padding:12px 0 6px;display:flex;align-items:center;gap:6px}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:var(--bg3);border:1px solid var(--bdr2);border-radius:10px;
+  padding:10px 18px;font-size:13px;color:var(--tx);z-index:999;opacity:0;
+  pointer-events:none;transition:all .25s;white-space:nowrap;box-shadow:var(--shadow)}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media(min-width:768px){
+  .live-grid{grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
+  .lc-num{font-size:62px}
+  .mr-team{font-size:14px}
+  #main{padding:16px 20px}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-wrap">
+    <div class="login-logo">
+      <div class="logo-icon">🏓</div>
+      <div class="logo-title">Referee Pickleball</div>
+      <div class="logo-sub">DA NANG ®</div>
+      <div class="logo-badge">👁 XEM GIẢI ĐẤU</div>
+    </div>
+    <div class="login-card">
+      <h3>Đăng nhập</h3>
+      <p>Nhập số điện thoại được cấp để xem giải đấu</p>
+      <label class="fl" style="display:none">Địa chỉ hệ thống</label>
+      <input class="fi" id="gs-url" autocomplete="off" style="display:none"
+        value="https://script.google.com/macros/s/AKfycbyLujKd3ONX6RZffuMaHSWKgGCGN6k6dAwp3kEEw05Shs6u4jctSpwe6-B7tw8yTCKL/exec">
+      <label class="fl">Số điện thoại / Mã đăng nhập</label>
+      <input class="fi" id="login-id" placeholder="0901234567" inputmode="tel" autocomplete="off"
+        onkeydown="if(event.key==='Enter')doLogin()">
+      <div id="login-err" class="login-err"></div>
+      <button class="btn-login" id="login-btn" onclick="doLogin()">Đăng nhập →</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" style="display:none">
+  <div id="topbar">
+    <div class="tb-logo">🏓 PB</div>
+    <div class="tb-sep"></div>
+    <div class="tb-giai">
+      <div class="tb-gname" id="tb-gname">—</div>
+      <div class="tb-gsub" id="tb-gsub">—</div>
+    </div>
+    <div class="tb-live-badge" id="tb-live"><div class="dot"></div>LIVE</div>
+    <button class="tb-logout" onclick="doLogout()">Thoát</button>
+  </div>
+
+  <div id="navtabs">
+    <button class="ntab on" data-tab="live" onclick="switchTab('live')">🔴 Đang đấu</button>
+    <button class="ntab" data-tab="schedule" onclick="switchTab('schedule')">📋 Lịch đấu</button>
+    <button class="ntab" data-tab="standings" onclick="switchTab('standings')">🏅 BXH</button>
+  </div>
+
+  <div id="nd-filter-bar"></div>
+
+  <div id="rbar">
+    <span class="update-time" id="update-time">—</span>
+    <button class="rfbtn" id="rf-btn" onclick="refreshAll()">↻ Làm mới</button>
+  </div>
+
+  <div id="debug-info"></div>
+
+  <div id="main">
+    <div class="page on" id="tab-live"><div id="live-content"><div class="spin-wrap"><div class="spin"></div></div></div></div>
+    <div class="page" id="tab-schedule"><div id="schedule-content"><div class="spin-wrap"><div class="spin"></div></div></div></div>
+    <div class="page" id="tab-standings"><div id="standings-content"><div class="spin-wrap"><div class="spin"></div></div></div></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ══ CONFIG ══
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbw1HiQCcbGXgGzXj77oDrETKRTyn4WjUGjyNaPBpS5oapnwyBSvJWFf_Y_Ob-sUqj8QoQ/exec';
+
+// ══ STATE ══
+let GS=GAS_URL, USER_NAME='', USER_CODE='', USER_GIAI='', USER_ND='';
+let _M=[], _R=[], _L=[], _T=null, _giaiName='';
+let _curTab='live', _curNd='', _allNds=[];
+let _liveTimer=null;
+const REFRESH_SEC=12;
+
+// ══ UTILS ══
+const $=id=>document.getElementById(id);
+const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+function toast(msg,dur=2500){
+  const t=$('toast');t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),dur);
+}
+function setUpdateTime(){
+  const d=new Date();
+  $('update-time').textContent='Cập nhật: '+d.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+
+// ══ API ══
+async function gGet(params,timeout=12000){
+  const url=new URL(GS);
+  Object.entries(params).forEach(([k,v])=>{if(v!=null&&v!=='')url.searchParams.set(k,v);});
+  const ctrl=new AbortController();
+  const t=setTimeout(()=>ctrl.abort(),timeout);
+  try{
+    const r=await fetch(url.toString(),{signal:ctrl.signal,cache:'no-store'});
+    clearTimeout(t);
+    return await r.json();
+  }catch(e){clearTimeout(t);return {};}
+}
+
+// ══ LOGIN ══
+function loadSaved(){
+  try{
+    const s=localStorage.getItem('pb_player3');
+    if(!s)return false;
+    const j=JSON.parse(s);
+    if(!j.u||!j.c)return false;
+    GS=j.u;USER_NAME=j.n||'';USER_CODE=j.c;USER_GIAI=j.g||'';USER_ND=j.nd||'';
+    return true;
+  }catch(e){return false;}
+}
+
+async function doLogin(){
+  const id=$('login-id').value.trim();
+  if(!id){showErr('Vui lòng nhập số điện thoại hoặc mã');return;}
+  const btn=$('login-btn');btn.disabled=true;btn.textContent='Đang đăng nhập...';
+  hideErr();
+  try{
+    const phone=id.replace(/\D/g,'');
+    const isPhone=phone.length>=8&&phone.length<=12&&/^\d+$/.test(phone);
+    const param=isPhone?'&phone='+encodeURIComponent(phone):'&code='+encodeURIComponent(id.toUpperCase());
+    const r=await fetch(GS+'?action=validate&device=player-web&_t='+Date.now()+param,{cache:'no-store'});
+    if(!r.ok){showErr('Lỗi kết nối HTTP '+r.status);btn.disabled=false;btn.textContent='Đăng nhập →';return;}
+    const d=await r.json();
+    if(!d.valid){showErr(d.reason||'Số điện thoại hoặc mã không đúng');btn.disabled=false;btn.textContent='Đăng nhập →';return;}
+    const st=(d.statusRaw||'').toLowerCase();
+    if(st==='khóa'||st==='disabled'){showErr('Tài khoản bị khóa');btn.disabled=false;btn.textContent='Đăng nhập →';return;}
+    USER_NAME=d.name||'';USER_CODE=d.code||'';USER_GIAI=d.giai||'';USER_ND=d.noidung||'';
+    localStorage.setItem('pb_player3',JSON.stringify({u:GS,c:USER_CODE,n:USER_NAME,g:USER_GIAI,nd:USER_ND}));
+    startApp();
+  }catch(e){showErr('Lỗi: '+e.message);btn.disabled=false;btn.textContent='Đăng nhập →';}
+}
+function showErr(m){const e=$('login-err');e.textContent=m;e.style.display='block';}
+function hideErr(){$('login-err').style.display='none';}
+function doLogout(){
+  if(!confirm('Đăng xuất?'))return;
+  localStorage.removeItem('pb_player3');
+  stopRefresh();
+  $('app').style.display='none';
+  $('login-screen').style.display='flex';
+  $('login-id').value='';
+  $('login-btn').disabled=false;$('login-btn').textContent='Đăng nhập →';
+}
+
+// ══ APP ══
+async function startApp(){
+  $('login-screen').style.display='none';
+  $('app').style.display='block';
+  try{await loadAll();}catch(e){console.error('loadAll:',e);}
+  switchTab('live');
+  startRefresh();
+}
+function startRefresh(){stopRefresh();_liveTimer=setInterval(()=>silentRefresh(),REFRESH_SEC*1000);}
+function stopRefresh(){if(_liveTimer){clearInterval(_liveTimer);_liveTimer=null;}}
+async function silentRefresh(){try{await loadAll();renderCurrentTab();}catch(e){}}
+async function refreshAll(){
+  const btn=$('rf-btn');btn.disabled=true;btn.textContent='⏳';
+  try{await loadAll();renderCurrentTab();toast('✅ Đã cập nhật');}
+  finally{btn.disabled=false;btn.textContent='↻ Làm mới';}
+}
+
+// ══ LOAD DATA ══
+async function loadAll(){
+  // Step 1: Resolve giai name from tournaments list
+  try{
+    const td=await gGet({action:'tournaments'});
+    if(td.rows?.length>1){
+      const trows=td.rows.slice(1);
+      const gUp=(USER_GIAI||'').trim().toUpperCase();
+      let found=gUp?trows.find(r=>String(r[0]||'').trim().toUpperCase()===gUp||String(r[1]||'').trim().toUpperCase()===gUp):null;
+      if(!found&&trows.length)found=trows[0];
+      if(found){_T=found;_giaiName=String(found[1]||'').trim();}
+    }
+  }catch(e){console.warn('tournaments fetch:',e);}
+
+  // Step 2: Fetch with giai NAME (GAS filters by name not ID)
+  const gName=_giaiName||USER_GIAI||'';
+  try{
+    const[md,rd,ld]=await Promise.all([
+      gGet({action:'matches',giai:gName}).catch(()=>({})),
+      gGet({action:'results',giai:gName}).catch(()=>({})),
+      gGet({action:'live',code:'all',giai:gName}).catch(()=>({}) ),
+    ]);
+    if(md.rows?.length>1)_M=md.rows.slice(1);
+    if(rd.rows?.length>1)_R=rd.rows.slice(1);
+    // HDR_LIVE: [Key, Giải đấu, Đội A, Điểm A, Điểm B, Đội B, Giao bóng, Game, Cập nhật, Trạng thái]
+    if(ld.rows?.length>1)_L=ld.rows.slice(1).filter(r=>String(r[9]||'').toLowerCase()!=='finished');
+    else _L=[];
+  }catch(e){console.warn('data fetch:',e);}
+
+  buildNdList();
+  renderTopBar();
+  renderNdFilter();
+  setUpdateTime();
+  $('tb-live').style.display=_L.length?'flex':'none';
+  showDebug();
+}
+
+function buildNdList(){
+  // HDR_MATCHES col 0=Giải đấu, 1=Nội dung
+  const gUp=(_giaiName||USER_GIAI||'').toUpperCase();
+  const allNds=[...new Set(_M
+    .filter(m=>{const g=String(m[0]||'').trim().toUpperCase();return !gUp||g===gUp;})
+    .map(m=>String(m[1]||'').trim()).filter(Boolean))];
+  if(USER_ND&&USER_ND.trim()){
+    const allowed=USER_ND.split(',').map(s=>s.trim()).filter(Boolean);
+    _allNds=allNds.filter(nd=>allowed.some(a=>nd.toLowerCase()===a.toLowerCase()||nd.includes(a)||a.includes(nd)));
+    if(!_allNds.length)_allNds=allowed;
+  }else{_allNds=allNds;}
+  if(!_curNd||!_allNds.includes(_curNd))_curNd=_allNds[0]||'';
+}
+
+function renderTopBar(){
+  const name=_T?String(_T[1]||''):USER_GIAI;
+  const venue=_T?String(_T[2]||''):'';
+  const s=_T?String(_T[4]||''):'',e=_T?String(_T[5]||''):'';
+  $('tb-gname').textContent=name||'Giải đấu';
+  const fmt=d=>{try{return new Date(d).toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit'});}catch{return d;}};
+  let sub=venue;
+  if(s)sub+=(sub?' · ':'')+fmt(s)+(e?' – '+fmt(e):'');
+  $('tb-gsub').textContent=sub||USER_NAME;
+}
+
+function renderNdFilter(){
+  const bar=$('nd-filter-bar');
+  if(_allNds.length<=1){bar.style.display='none';return;}
+  bar.style.display='flex';
+  bar.innerHTML=_allNds.map(nd=>`<button class="nd-chip${nd===_curNd?' on':''}" onclick="selectNd('${esc(nd)}')">${esc(nd)}</button>`).join('');
+}
+function selectNd(nd){_curNd=nd;renderNdFilter();renderCurrentTab();}
+
+function showDebug(){
+  const el=$('debug-info');if(!el)return;
+  try{
+    const rMap=buildResMap();const fm=getMatches();
+    const done=fm.filter(m=>isDone(m,rMap)).length;
+    el.innerHTML=`USER_GIAI: ${esc(USER_GIAI)} | _giaiName: ${esc(_giaiName)} | _M: ${_M.length} | _R: ${_R.length} | _L: ${_L.length} | _allNds: ${_allNds.join(',')||'—'} | curNd: ${esc(_curNd)} | filtered: ${fm.length} | done: ${done} | pending: ${fm.length-done}`;
+    el.style.display='none'; // debug ẩn
+  }catch(e){}
+}
+
+// ══ TAB ══
+function switchTab(tab){
+  _curTab=tab;
+  document.querySelectorAll('.ntab').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
+  document.querySelectorAll('.page').forEach(p=>p.classList.toggle('on',p.id==='tab-'+tab));
+  renderCurrentTab();
+}
+function renderCurrentTab(){
+  try{
+    if(_curTab==='live')renderLive();
+    else if(_curTab==='schedule')renderSchedule();
+    else if(_curTab==='standings')renderStandings();
+  }catch(e){
+    const w=$(_curTab+'-content');
+    if(w)w.innerHTML=`<div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);padding:14px;border-radius:8px;font-size:12px;color:#fca5a5;font-family:monospace;margin:8px">❌ Lỗi render [${_curTab}]: ${esc(e.message)}<br><small>${esc((e.stack||'').split('\n').slice(0,2).join(' | '))}</small></div>`;
+    console.error('render error:',e);
+  }
+}
+
+// ══ HELPERS ══
+function getMatches(){
+  // HDR_MATCHES: [0]Giải đấu,[1]Nội dung,[2]Bảng,[3]Mã trận,[4]Đội A,[5]ĐiểmA,[6]ĐiểmB,[7]Đội B,[8]Sân,[9]Vòng,[10]GhiChú
+  const gUp=(_giaiName||USER_GIAI||'').toUpperCase();
+  return _M.filter(m=>{
+    const g=String(m[0]||'').trim().toUpperCase();
+    const nd=String(m[1]||'').trim();
+    const giaiOk=!gUp||g===gUp;
+    const ndOk=!_curNd||nd===_curNd;
+    return giaiOk&&ndOk;
+  });
+}
+
+function getResults(){
+  // KetQua: [0]time,[1]giai,[2]nd,[3]bang,[4]code,[5]teamA,[6]teamB,[7]sA,[8]sB,[9]winner,[10]court,[11]ref,[12]rule
+  const gUp=(_giaiName||USER_GIAI||'').toUpperCase();
+  return _R.filter(r=>{
+    const g=String(r[1]||'').trim().toUpperCase();
+    const nd=String(r[2]||'').trim();
+    const giaiOk=!gUp||g===gUp;
+    const ndOk=!_curNd||nd===_curNd;
+    return giaiOk&&ndOk;
+  });
+}
+
+function buildResMap(){
+  // key = nd|bang|code
+  const map=new Map();
+  getResults().forEach(r=>{
+    const key=String(r[2]||'')+'|'+String(r[3]||'')+'|'+String(r[4]||'');
+    map.set(key,{sA:Number(r[7]||0),sB:Number(r[8]||0),winner:String(r[9]||'')});
+  });
+  return map;
+}
+
+function isDone(m,rMap){
+  if(!rMap)rMap=buildResMap();
+  const key=String(m[1]||'')+'|'+String(m[2]||'')+'|'+String(m[3]||'');
+  return rMap.has(key);
+}
+
+function getLiveByKey(nd,bang,code){
+  // HDR_LIVE Key = nd|bang|code (or just code in older versions)
+  // Try full key first, then just code
+  const fullKey=nd+'|'+bang+'|'+code;
+  return _L.find(l=>String(l[0]||'')===fullKey||String(l[0]||'')===code)||null;
+}
+
+// ══ RENDER LIVE ══
+// HDR_LIVE: [0]Key,[1]Giải đấu,[2]Đội A,[3]Điểm A,[4]Điểm B,[5]Đội B,[6]Giao bóng,[7]Game,[8]Cập nhật,[9]Trạng thái
+function renderLive(){
+  const wrap=$('live-content');
+  if(!_L.length){
+    wrap.innerHTML=`<div class="empty-state">
+      <div class="empty-icon">🏓</div>
+      <div class="empty-msg">Hiện không có trận nào đang thi đấu</div>
+      <div class="empty-sub">Tự động cập nhật mỗi ${REFRESH_SEC}s</div>
+    </div>`;
+    return;
+  }
+  // Filter live by giai/nd
+  const gUp=(_giaiName||USER_GIAI||'').toUpperCase();
+  const liveRows=_L.filter(l=>{
+    const lg=String(l[1]||'').trim().toUpperCase();
+    if(gUp&&lg&&lg!==gUp)return false;
+    if(_curNd){
+      const key=String(l[0]||'');
+      const ndFromKey=key.split('|')[0]||'';
+      if(ndFromKey&&ndFromKey!==_curNd)return false;
+    }
+    return true;
+  });
+  if(!liveRows.length){
+    wrap.innerHTML=`<div class="empty-state"><div class="empty-icon">🏓</div>
+      <div class="empty-msg">Hiện không có trận nào đang thi đấu</div>
+      <div class="empty-sub">Tự động cập nhật mỗi ${REFRESH_SEC}s</div></div>`;
+    return;
+  }
+  wrap.innerHTML=`<div class="live-grid" style="margin-top:4px">${liveRows.map(l=>{
+    const key=String(l[0]||'');
+    const parts=key.split('|');
+    const nd=parts[0]||'',bang=parts[1]||'',code=parts[2]||'';
+    const tA=String(l[2]||'—'),tB=String(l[5]||'—');
+    const sA=Number(l[3]||0),sB=Number(l[4]||0);
+    const serve=String(l[6]||'');
+    const game=String(l[7]||'');
+    const aWin=sA>sB,bWin=sB>sA;
+    // Find match for court/round info
+    const mInfo=_M.find(m=>String(m[3]||'')===code&&String(m[2]||'')===bang)||null;
+    const court=mInfo?String(mInfo[8]||''):'';
+    const round=mInfo?String(mInfo[9]||''):'';
+    return `<div class="live-card">
+      <div class="lc-hdr">
+        <div class="lc-live-badge"><div class="dot"></div>LIVE</div>
+        <div class="lc-meta">${esc(bang||nd)}${round?' · '+esc(round):''}</div>
+      </div>
+      <div class="lc-body">
+        <div class="lc-scoreboard">
+          <div class="lc-team">
+            <div class="lc-team-name">${esc(tA)}</div>
+            <div class="lc-serve">${serve==='A'?'🟡 Giao bóng':''}</div>
+          </div>
+          <div class="lc-score-wrap">
+            <div>
+              <span class="lc-num${aWin?' win':''}">${sA}</span>
+              <span class="lc-dash">–</span>
+              <span class="lc-num${bWin?' win':''}">${sB}</span>
+            </div>
+            ${game?`<div class="lc-game">Game ${esc(game)}</div>`:''}
+          </div>
+          <div class="lc-team">
+            <div class="lc-team-name">${esc(tB)}</div>
+            <div class="lc-serve">${serve==='B'?'🟡 Giao bóng':''}</div>
+          </div>
+        </div>
+      </div>
+      <div class="lc-ftr">
+        <div class="lc-court">${court?'🏸 '+esc(court):''}</div>
+        <div class="lc-round-tag">${esc(round)}</div>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+// ══ RENDER SCHEDULE (Lịch đấu = tất cả bảng + trận) ══
+function renderSchedule(){
+  const wrap=$('schedule-content');
+  const matches=getMatches();
+  if(!matches.length){
+    wrap.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-msg">Không có trận nào</div></div>';
+    return;
+  }
+  const rMap=buildResMap();
+  const liveKeys=new Set(_L.map(l=>String(l[0]||'')));
+
+  // Group by bang
+  const byBang=new Map();
+  matches.forEach(m=>{
+    const b=String(m[2]||'Khác');
+    if(!byBang.has(b))byBang.set(b,[]);
+    byBang.get(b).push(m);
+  });
+
+  // Sort: pool bangs alphabetically, KO last
+  const KO=['Tứ kết','Bán kết','Chung kết','Hạng 3','Vòng 16','TK','BK','CK','H3'];
+  const isKo=n=>KO.some(k=>n.startsWith(k)||n.includes(k));
+  // Sort: Bảng pool (A,B,C...) trước, KO vòng trong sau theo thứ tự chuẩn
+  const KO_ORDER=['Vòng 16','Tứ kết','Bán kết','Hạng 3','Chung kết'];
+  const koRank=n=>{const i=KO_ORDER.findIndex(k=>n.startsWith(k)||n===k);return i<0?99:i;};
+  const sorted=[...byBang.keys()].sort((a,b)=>{
+    const aKo=isKo(a),bKo=isKo(b);
+    if(!aKo&&bKo)return -1; // pool trước
+    if(aKo&&!bKo)return 1;  // KO sau
+    if(aKo&&bKo)return koRank(a)-koRank(b); // KO theo thứ tự
+    return a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'}); // pool alphabetical
+  });
+
+  wrap.innerHTML=sorted.map(bang=>{
+    const ms=byBang.get(bang);
+    const doneCount=ms.filter(m=>isDone(m,rMap)).length;
+    const liveCount=ms.filter(m=>{
+      const key=String(m[1]||'')+'|'+String(m[2]||'')+'|'+String(m[3]||'');
+      return liveKeys.has(key)||liveKeys.has(String(m[3]||''));
+    }).length;
+    const meta=`${ms.length} trận${liveCount?' · <span style="color:var(--rd)">'+liveCount+' live</span>':''}${doneCount?' · <span style="color:var(--gn)">'+doneCount+' xong</span>':''}`;
+    const rows=ms.map(m=>{
+      const nd=String(m[1]||''),bang2=String(m[2]||''),code=String(m[3]||'');
+      const tA=String(m[4]||'').trim()||'TBD',tB=String(m[7]||'').trim()||'TBD';
+      const court=String(m[8]||''),round=String(m[9]||'');
+      const fullKey=nd+'|'+bang2+'|'+code;
+      const isLive=liveKeys.has(fullKey)||liveKeys.has(code);
+      const done2=isDone(m,rMap);
+      const res=done2?rMap.get(fullKey):null;
+      const lRow=isLive?getLiveByKey(nd,bang2,code):null;
+      const sA=res?res.sA:(lRow?Number(lRow[3]||0):'');
+      const sB=res?res.sB:(lRow?Number(lRow[4]||0):'');
+      const aW=res&&Number(res.sA)>Number(res.sB),bW=res&&Number(res.sB)>Number(res.sA);
+      const status=isLive?'live':done2?'done':'pending';
+      let mid='';
+      if(isLive||done2){
+        mid=`<div class="mr-score"><span class="${aW?'w':''}">${sA}</span><span style="color:var(--tx3);margin:0 2px;font-size:14px">–</span><span class="${bW?'w':''}">${sB}</span></div>`;
+        if(isLive)mid+=`<div class="live-pill"><div class="dot"></div>LIVE</div>`;
+      }else{
+        mid=`<div class="mr-vs">VS</div>`;
+      }
+      return `<div class="match-row ${status}">
+        <div class="mr-team${aW?' winner':''}">${esc(tA)}</div>
+        <div class="mr-mid">${mid}<div class="mr-info">${court?esc(court):''}${round?' · '+esc(round):''}</div></div>
+        <div class="mr-team right${bW?' winner':''}">${esc(tB)}</div>
+      </div>`;
+    }).join('');
+    return `<div class="bang-card">
+      <div class="bang-head" onclick="toggleBang(this)">
+        <div class="bang-head-title">${isKo(bang)?'🏆 ':''} ${esc(bang)}</div>
+        <div class="bang-head-meta">${meta}</div>
+        <div class="bang-chevron open">▾</div>
+      </div>
+      <div class="bang-body open">${rows}</div>
+    </div>`;
+  }).join('');
+}
+
+function toggleBang(head){
+  const body=head.nextElementSibling;
+  const chev=head.querySelector('.bang-chevron');
+  const open=body.classList.toggle('open');
+  if(chev)chev.classList.toggle('open',open);
+}
+
+// ══ RENDER BXH ══
+function renderStandings(){
+  const wrap=$('standings-content');
+  const res=getResults();
+  const KO=['Tứ kết','Bán kết','Chung kết','Hạng 3','Vòng 16','TK','BK','CK','H3'];
+  const isKo=n=>KO.some(k=>n.startsWith(k)||n.includes(k));
+
+  // Group by bang (pool only)
+  const byBang=new Map();
+  res.filter(r=>!isKo(String(r[3]||''))).forEach(r=>{
+    const b=String(r[3]||'');if(!b)return;
+    if(!byBang.has(b))byBang.set(b,[]);
+    byBang.get(b).push(r);
+  });
+
+  if(!byBang.size){
+    wrap.innerHTML='<div class="empty-state"><div class="empty-icon">🏅</div><div class="empty-msg">Chưa có kết quả để xếp hạng</div></div>';
+    return;
+  }
+
+  const sortedBangs=[...byBang.keys()].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'}));
+  const adv=sortedBangs.length>=2?2:1;
+
+  wrap.innerHTML=sortedBangs.map(bang=>{
+    const rows=byBang.get(bang);
+    const ts={};
+    // KetQua: [0]time,[1]giai,[2]nd,[3]bang,[4]code,[5]teamA,[6]teamB,[7]sA,[8]sB
+    rows.forEach(r=>{
+      const tA=String(r[5]||''),tB=String(r[6]||'');
+      const sA=Number(r[7]||0),sB=Number(r[8]||0);
+      [tA,tB].filter(Boolean).forEach(t=>{if(!ts[t])ts[t]={team:t,won:0,lost:0,pf:0,pa:0,played:0};});
+      if(!tA||!tB)return;
+      ts[tA].played++;ts[tB].played++;
+      ts[tA].pf+=sA;ts[tA].pa+=sB;
+      ts[tB].pf+=sB;ts[tB].pa+=sA;
+      if(sA>sB){ts[tA].won++;ts[tB].lost++;}
+      else if(sB>sA){ts[tB].won++;ts[tA].lost++;}
+    });
+    const st=Object.values(ts).sort((a,b)=>{
+      if(b.won!==a.won)return b.won-a.won;
+      const ad=a.pf-a.pa,bd=b.pf-b.pa;
+      if(bd!==ad)return bd-ad;
+      return b.pf-a.pf;
+    });
+    const rk=i=>i===0?'r1':i===1?'r2':i===2?'r3':'rn';
+    return `<div class="bxh-card">
+      <div class="bxh-head" onclick="toggleBxh(this)">
+        <div class="bxh-bang">${esc(bang)}</div>
+        <div class="bxh-meta">${st.length} đội · ${rows.length} trận</div>
+        <div class="bxh-arrow open">▾</div>
+      </div>
+      <div class="bxh-body open">
+        <table class="bxh-tbl">
+          <thead><tr><th>#</th><th>Đội</th><th>T</th><th>T/B</th><th>PT</th><th>PP</th><th>HS</th></tr></thead>
+          <tbody>${st.map((s,i)=>`<tr${i<adv?' class="adv"':''}>
+            <td><span class="rank-badge ${rk(i)}">${i+1}</span></td>
+            <td><span class="bxh-team">${esc(s.team)}</span>${i<adv?'<span class="adv-tag">▲</span>':''}</td>
+            <td>${s.played}</td>
+            <td><span class="w-badge">${s.won}</span> <span class="l-badge">${s.lost}</span></td>
+            <td>${s.pf}</td><td>${s.pa}</td>
+            <td style="color:${s.pf-s.pa>=0?'var(--gn)':'var(--rd)'};font-weight:700">${s.pf-s.pa>=0?'+':''}${s.pf-s.pa}</td>
+          </tr>`).join('')}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleBxh(head){
+  const body=head.nextElementSibling;
+  const arr=head.querySelector('.bxh-arrow');
+  const open=body.classList.toggle('open');
+  if(arr)arr.classList.toggle('open',open);
+}
+
+// ══ BOOT ══
+window.addEventListener('load',()=>{
+  $('gs-url').value=GAS_URL;
+  if(loadSaved()&&GS&&USER_CODE)startApp();
+});
+</script>
+</body>
+</html>';
+
+// ══ STATE ══
+let GS=GAS_URL, USER_NAME='', USER_CODE='', USER_GIAI='', USER_ND='';
+let _M=[], _R=[], _L=[], _T=null, _giaiName='';
+let _curTab='live', _curNd='', _allNds=[];
+let _liveTimer=null;
+const REFRESH_SEC=12;
+
+// ══ UTILS ══
+const $=id=>document.getElementById(id);
+const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+function toast(msg,dur=2500){
+  const t=$('toast');t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),dur);
+}
+function setUpdateTime(){
+  const d=new Date();
+  $('update-time').textContent='Cập nhật: '+d.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+
+// ══ API ══
+async function gGet(params,timeout=12000){
+  const url=new URL(GS);
+  Object.entries(params).forEach(([k,v])=>{if(v!=null&&v!=='')url.searchParams.set(k,v);});
+  const ctrl=new AbortController();
+  const t=setTimeout(()=>ctrl.abort(),timeout);
+  try{
+    const r=await fetch(url.toString(),{signal:ctrl.signal,cache:'no-store'});
+    clearTimeout(t);
+    return await r.json();
+  }catch(e){clearTimeout(t);return {};}
+}
+
+// ══ LOGIN ══
+function loadSaved(){
+  try{
+    const s=localStorage.getItem('pb_player3');
+    if(!s)return false;
+    const j=JSON.parse(s);
+    if(!j.u||!j.c)return false;
+    GS=j.u;USER_NAME=j.n||'';USER_CODE=j.c;USER_GIAI=j.g||'';USER_ND=j.nd||'';
+    return true;
+  }catch(e){return false;}
+}
+
+async function doLogin(){
+  const id=$('login-id').value.trim();
+  if(!id){showErr('Vui lòng nhập số điện thoại hoặc mã');return;}
+  const btn=$('login-btn');btn.disabled=true;btn.textContent='Đang đăng nhập...';
+  hideErr();
+  try{
+    const phone=id.replace(/\D/g,'');
+    const isPhone=phone.length>=8&&phone.length<=12&&/^\d+$/.test(phone);
+    const param=isPhone?'&phone='+encodeURIComponent(phone):'&code='+encodeURIComponent(id.toUpperCase());
+    const r=await fetch(GS+'?action=validate&device=player-web&_t='+Date.now()+param,{cache:'no-store'});
+    if(!r.ok){showErr('Lỗi kết nối HTTP '+r.status);btn.disabled=false;btn.textContent='Đăng nhập →';return;}
+    const d=await r.json();
+    if(!d.valid){showErr(d.reason||'Số điện thoại hoặc mã không đúng');btn.disabled=false;btn.textContent='Đăng nhập →';return;}
+    const st=(d.statusRaw||'').toLowerCase();
+    if(st==='khóa'||st==='disabled'){showErr('Tài khoản bị khóa');btn.disabled=false;btn.textContent='Đăng nhập →';return;}
+    USER_NAME=d.name||'';USER_CODE=d.code||'';USER_GIAI=d.giai||'';USER_ND=d.noidung||'';
+    localStorage.setItem('pb_player3',JSON.stringify({u:GS,c:USER_CODE,n:USER_NAME,g:USER_GIAI,nd:USER_ND}));
+    startApp();
+  }catch(e){showErr('Lỗi: '+e.message);btn.disabled=false;btn.textContent='Đăng nhập →';}
+}
+function showErr(m){const e=$('login-err');e.textContent=m;e.style.display='block';}
+function hideErr(){$('login-err').style.display='none';}
+function doLogout(){
+  if(!confirm('Đăng xuất?'))return;
+  localStorage.removeItem('pb_player3');
+  stopRefresh();
+  $('app').style.display='none';
+  $('login-screen').style.display='flex';
+  $('login-id').value='';
+  $('login-btn').disabled=false;$('login-btn').textContent='Đăng nhập →';
+}
+
+// ══ APP ══
+async function startApp(){
+  $('login-screen').style.display='none';
+  $('app').style.display='block';
+  try{await loadAll();}catch(e){console.error('loadAll:',e);}
+  switchTab('live');
+  startRefresh();
+}
+function startRefresh(){stopRefresh();_liveTimer=setInterval(()=>silentRefresh(),REFRESH_SEC*1000);}
+function stopRefresh(){if(_liveTimer){clearInterval(_liveTimer);_liveTimer=null;}}
+async function silentRefresh(){try{await loadAll();renderCurrentTab();}catch(e){}}
+async function refreshAll(){
+  const btn=$('rf-btn');btn.disabled=true;btn.textContent='⏳';
+  try{await loadAll();renderCurrentTab();toast('✅ Đã cập nhật');}
+  finally{btn.disabled=false;btn.textContent='↻ Làm mới';}
+}
+
+// ══ LOAD DATA ══
+async function loadAll(){
+  // Step 1: Resolve giai name from tournaments list
+  try{
+    const td=await gGet({action:'tournaments'});
+    if(td.rows?.length>1){
+      const trows=td.rows.slice(1);
+      const gUp=(USER_GIAI||'').trim().toUpperCase();
+      let found=gUp?trows.find(r=>String(r[0]||'').trim().toUpperCase()===gUp||String(r[1]||'').trim().toUpperCase()===gUp):null;
+      if(!found&&trows.length)found=trows[0];
+      if(found){_T=found;_giaiName=String(found[1]||'').trim();}
+    }
+  }catch(e){console.warn('tournaments fetch:',e);}
+
+  // Step 2: Fetch with giai NAME (GAS filters by name not ID)
+  const gName=_giaiName||USER_GIAI||'';
+  try{
+    const[md,rd,ld]=await Promise.all([
+      gGet({action:'matches',giai:gName}).catch(()=>({})),
+      gGet({action:'results',giai:gName}).catch(()=>({})),
+      gGet({action:'live',code:'all',giai:gName}).catch(()=>({}) ),
+    ]);
+    if(md.rows?.length>1)_M=md.rows.slice(1);
+    if(rd.rows?.length>1)_R=rd.rows.slice(1);
+    // HDR_LIVE: [Key, Giải đấu, Đội A, Điểm A, Điểm B, Đội B, Giao bóng, Game, Cập nhật, Trạng thái]
+    if(ld.rows?.length>1)_L=ld.rows.slice(1).filter(r=>String(r[9]||'').toLowerCase()!=='finished');
+    else _L=[];
+  }catch(e){console.warn('data fetch:',e);}
+
+  buildNdList();
+  renderTopBar();
+  renderNdFilter();
+  setUpdateTime();
+  $('tb-live').style.display=_L.length?'flex':'none';
+  showDebug();
+}
+
+function buildNdList(){
+  // HDR_MATCHES col 0=Giải đấu, 1=Nội dung
+  const gUp=(_giaiName||USER_GIAI||'').toUpperCase();
+  const allNds=[...new Set(_M
+    .filter(m=>{const g=String(m[0]||'').trim().toUpperCase();return !gUp||g===gUp;})
+    .map(m=>String(m[1]||'').trim()).filter(Boolean))];
+  if(USER_ND&&USER_ND.trim()){
+    const allowed=USER_ND.split(',').map(s=>s.trim()).filter(Boolean);
+    _allNds=allNds.filter(nd=>allowed.some(a=>nd.toLowerCase()===a.toLowerCase()||nd.includes(a)||a.includes(nd)));
+    if(!_allNds.length)_allNds=allowed;
+  }else{_allNds=allNds;}
+  if(!_curNd||!_allNds.includes(_curNd))_curNd=_allNds[0]||'';
+}
+
+function renderTopBar(){
+  const name=_T?String(_T[1]||''):USER_GIAI;
+  const venue=_T?String(_T[2]||''):'';
+  const s=_T?String(_T[4]||''):'',e=_T?String(_T[5]||''):'';
+  $('tb-gname').textContent=name||'Giải đấu';
+  const fmt=d=>{try{return new Date(d).toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit'});}catch{return d;}};
+  let sub=venue;
+  if(s)sub+=(sub?' · ':'')+fmt(s)+(e?' – '+fmt(e):'');
+  $('tb-gsub').textContent=sub||USER_NAME;
+}
+
+function renderNdFilter(){
+  const bar=$('nd-filter-bar');
+  if(_allNds.length<=1){bar.style.display='none';return;}
+  bar.style.display='flex';
+  bar.innerHTML=_allNds.map(nd=>`<button class="nd-chip${nd===_curNd?' on':''}" onclick="selectNd('${esc(nd)}')">${esc(nd)}</button>`).join('');
+}
+function selectNd(nd){_curNd=nd;renderNdFilter();renderCurrentTab();}
+
+function showDebug(){
+  const el=$('debug-info');if(!el)return;
+  try{
+    const rMap=buildResMap();const fm=getMatches();
+    const done=fm.filter(m=>isDone(m,rMap)).length;
+    el.innerHTML=`USER_GIAI: ${esc(USER_GIAI)} | _giaiName: ${esc(_giaiName)} | _M: ${_M.length} | _R: ${_R.length} | _L: ${_L.length} | _allNds: ${_allNds.join(',')||'—'} | curNd: ${esc(_curNd)} | filtered: ${fm.length} | done: ${done} | pending: ${fm.length-done}`;
+    el.style.display='none'; // debug ẩn
+  }catch(e){}
+}
+
+// ══ TAB ══
+function switchTab(tab){
+  _curTab=tab;
+  document.querySelectorAll('.ntab').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
+  document.querySelectorAll('.page').forEach(p=>p.classList.toggle('on',p.id==='tab-'+tab));
+  renderCurrentTab();
+}
+function renderCurrentTab(){
+  try{
+    if(_curTab==='live')renderLive();
+    else if(_curTab==='schedule')renderSchedule();
+    else if(_curTab==='standings')renderStandings();
+  }catch(e){
+    const w=$(_curTab+'-content');
+    if(w)w.innerHTML=`<div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);padding:14px;border-radius:8px;font-size:12px;color:#fca5a5;font-family:monospace;margin:8px">❌ Lỗi render [${_curTab}]: ${esc(e.message)}<br><small>${esc((e.stack||'').split('\n').slice(0,2).join(' | '))}</small></div>`;
+    console.error('render error:',e);
+  }
+}
+
+// ══ HELPERS ══
+function getMatches(){
+  // HDR_MATCHES: [0]Giải đấu,[1]Nội dung,[2]Bảng,[3]Mã trận,[4]Đội A,[5]ĐiểmA,[6]ĐiểmB,[7]Đội B,[8]Sân,[9]Vòng,[10]GhiChú
+  const gUp=(_giaiName||USER_GIAI||'').toUpperCase();
+  return _M.filter(m=>{
+    const g=String(m[0]||'').trim().toUpperCase();
+    const nd=String(m[1]||'').trim();
+    const giaiOk=!gUp||g===gUp;
+    const ndOk=!_curNd||nd===_curNd;
+    return giaiOk&&ndOk;
+  });
+}
+
+function getResults(){
+  // KetQua: [0]time,[1]giai,[2]nd,[3]bang,[4]code,[5]teamA,[6]teamB,[7]sA,[8]sB,[9]winner,[10]court,[11]ref,[12]rule
+  const gUp=(_giaiName||USER_GIAI||'').toUpperCase();
+  return _R.filter(r=>{
+    const g=String(r[1]||'').trim().toUpperCase();
+    const nd=String(r[2]||'').trim();
+    const giaiOk=!gUp||g===gUp;
+    const ndOk=!_curNd||nd===_curNd;
+    return giaiOk&&ndOk;
+  });
+}
+
+function buildResMap(){
+  // key = nd|bang|code
+  const map=new Map();
+  getResults().forEach(r=>{
+    const key=String(r[2]||'')+'|'+String(r[3]||'')+'|'+String(r[4]||'');
+    map.set(key,{sA:Number(r[7]||0),sB:Number(r[8]||0),winner:String(r[9]||'')});
+  });
+  return map;
+}
+
+function isDone(m,rMap){
+  if(!rMap)rMap=buildResMap();
+  const key=String(m[1]||'')+'|'+String(m[2]||'')+'|'+String(m[3]||'');
+  return rMap.has(key);
+}
+
+function getLiveByKey(nd,bang,code){
+  // HDR_LIVE Key = nd|bang|code (or just code in older versions)
+  // Try full key first, then just code
+  const fullKey=nd+'|'+bang+'|'+code;
+  return _L.find(l=>String(l[0]||'')===fullKey||String(l[0]||'')===code)||null;
+}
+
+// ══ RENDER LIVE ══
+// HDR_LIVE: [0]Key,[1]Giải đấu,[2]Đội A,[3]Điểm A,[4]Điểm B,[5]Đội B,[6]Giao bóng,[7]Game,[8]Cập nhật,[9]Trạng thái
+function renderLive(){
+  const wrap=$('live-content');
+  if(!_L.length){
+    wrap.innerHTML=`<div class="empty-state">
+      <div class="empty-icon">🏓</div>
+      <div class="empty-msg">Hiện không có trận nào đang thi đấu</div>
+      <div class="empty-sub">Tự động cập nhật mỗi ${REFRESH_SEC}s</div>
+    </div>`;
+    return;
+  }
+  // Filter live by giai/nd
+  const gUp=(_giaiName||USER_GIAI||'').toUpperCase();
+  const liveRows=_L.filter(l=>{
+    const lg=String(l[1]||'').trim().toUpperCase();
+    if(gUp&&lg&&lg!==gUp)return false;
+    if(_curNd){
+      const key=String(l[0]||'');
+      const ndFromKey=key.split('|')[0]||'';
+      if(ndFromKey&&ndFromKey!==_curNd)return false;
+    }
+    return true;
+  });
+  if(!liveRows.length){
+    wrap.innerHTML=`<div class="empty-state"><div class="empty-icon">🏓</div>
+      <div class="empty-msg">Hiện không có trận nào đang thi đấu</div>
+      <div class="empty-sub">Tự động cập nhật mỗi ${REFRESH_SEC}s</div></div>`;
+    return;
+  }
+  wrap.innerHTML=`<div class="live-grid" style="margin-top:4px">${liveRows.map(l=>{
+    const key=String(l[0]||'');
+    const parts=key.split('|');
+    const nd=parts[0]||'',bang=parts[1]||'',code=parts[2]||'';
+    const tA=String(l[2]||'—'),tB=String(l[5]||'—');
+    const sA=Number(l[3]||0),sB=Number(l[4]||0);
+    const serve=String(l[6]||'');
+    const game=String(l[7]||'');
+    const aWin=sA>sB,bWin=sB>sA;
+    // Find match for court/round info
+    const mInfo=_M.find(m=>String(m[3]||'')===code&&String(m[2]||'')===bang)||null;
+    const court=mInfo?String(mInfo[8]||''):'';
+    const round=mInfo?String(mInfo[9]||''):'';
+    return `<div class="live-card">
+      <div class="lc-hdr">
+        <div class="lc-live-badge"><div class="dot"></div>LIVE</div>
+        <div class="lc-meta">${esc(bang||nd)}${round?' · '+esc(round):''}</div>
+      </div>
+      <div class="lc-body">
+        <div class="lc-scoreboard">
+          <div class="lc-team">
+            <div class="lc-team-name">${esc(tA)}</div>
+            <div class="lc-serve">${serve==='A'?'🟡 Giao bóng':''}</div>
+          </div>
+          <div class="lc-score-wrap">
+            <div>
+              <span class="lc-num${aWin?' win':''}">${sA}</span>
+              <span class="lc-dash">–</span>
+              <span class="lc-num${bWin?' win':''}">${sB}</span>
+            </div>
+            ${game?`<div class="lc-game">Game ${esc(game)}</div>`:''}
+          </div>
+          <div class="lc-team">
+            <div class="lc-team-name">${esc(tB)}</div>
+            <div class="lc-serve">${serve==='B'?'🟡 Giao bóng':''}</div>
+          </div>
+        </div>
+      </div>
+      <div class="lc-ftr">
+        <div class="lc-court">${court?'🏸 '+esc(court):''}</div>
+        <div class="lc-round-tag">${esc(round)}</div>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+// ══ RENDER SCHEDULE (Lịch đấu = tất cả bảng + trận) ══
+function renderSchedule(){
+  const wrap=$('schedule-content');
+  const matches=getMatches();
+  if(!matches.length){
+    wrap.innerHTML='<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-msg">Không có trận nào</div></div>';
+    return;
+  }
+  const rMap=buildResMap();
+  const liveKeys=new Set(_L.map(l=>String(l[0]||'')));
+
+  // Group by bang
+  const byBang=new Map();
+  matches.forEach(m=>{
+    const b=String(m[2]||'Khác');
+    if(!byBang.has(b))byBang.set(b,[]);
+    byBang.get(b).push(m);
+  });
+
+  // Sort: pool bangs alphabetically, KO last
+  const KO=['Tứ kết','Bán kết','Chung kết','Hạng 3','Vòng 16','TK','BK','CK','H3'];
+  const isKo=n=>KO.some(k=>n.startsWith(k)||n.includes(k));
+  // Sort: Bảng pool (A,B,C...) trước, KO vòng trong sau theo thứ tự chuẩn
+  const KO_ORDER=['Vòng 16','Tứ kết','Bán kết','Hạng 3','Chung kết'];
+  const koRank=n=>{const i=KO_ORDER.findIndex(k=>n.startsWith(k)||n===k);return i<0?99:i;};
+  const sorted=[...byBang.keys()].sort((a,b)=>{
+    const aKo=isKo(a),bKo=isKo(b);
+    if(!aKo&&bKo)return -1; // pool trước
+    if(aKo&&!bKo)return 1;  // KO sau
+    if(aKo&&bKo)return koRank(a)-koRank(b); // KO theo thứ tự
+    return a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'}); // pool alphabetical
+  });
+
+  wrap.innerHTML=sorted.map(bang=>{
+    const ms=byBang.get(bang);
+    const doneCount=ms.filter(m=>isDone(m,rMap)).length;
+    const liveCount=ms.filter(m=>{
+      const key=String(m[1]||'')+'|'+String(m[2]||'')+'|'+String(m[3]||'');
+      return liveKeys.has(key)||liveKeys.has(String(m[3]||''));
+    }).length;
+    const meta=`${ms.length} trận${liveCount?' · <span style="color:var(--rd)">'+liveCount+' live</span>':''}${doneCount?' · <span style="color:var(--gn)">'+doneCount+' xong</span>':''}`;
+    const rows=ms.map(m=>{
+      const nd=String(m[1]||''),bang2=String(m[2]||''),code=String(m[3]||'');
+      const tA=String(m[4]||'').trim()||'TBD',tB=String(m[7]||'').trim()||'TBD';
+      const court=String(m[8]||''),round=String(m[9]||'');
+      const fullKey=nd+'|'+bang2+'|'+code;
+      const isLive=liveKeys.has(fullKey)||liveKeys.has(code);
+      const done2=isDone(m,rMap);
+      const res=done2?rMap.get(fullKey):null;
+      const lRow=isLive?getLiveByKey(nd,bang2,code):null;
+      const sA=res?res.sA:(lRow?Number(lRow[3]||0):'');
+      const sB=res?res.sB:(lRow?Number(lRow[4]||0):'');
+      const aW=res&&Number(res.sA)>Number(res.sB),bW=res&&Number(res.sB)>Number(res.sA);
+      const status=isLive?'live':done2?'done':'pending';
+      let mid='';
+      if(isLive||done2){
+        mid=`<div class="mr-score"><span class="${aW?'w':''}">${sA}</span><span style="color:var(--tx3);margin:0 2px;font-size:14px">–</span><span class="${bW?'w':''}">${sB}</span></div>`;
+        if(isLive)mid+=`<div class="live-pill"><div class="dot"></div>LIVE</div>`;
+      }else{
+        mid=`<div class="mr-vs">VS</div>`;
+      }
+      return `<div class="match-row ${status}">
+        <div class="mr-team${aW?' winner':''}">${esc(tA)}</div>
+        <div class="mr-mid">${mid}<div class="mr-info">${court?esc(court):''}${round?' · '+esc(round):''}</div></div>
+        <div class="mr-team right${bW?' winner':''}">${esc(tB)}</div>
+      </div>`;
+    }).join('');
+    return `<div class="bang-card">
+      <div class="bang-head" onclick="toggleBang(this)">
+        <div class="bang-head-title">${isKo(bang)?'🏆 ':''} ${esc(bang)}</div>
+        <div class="bang-head-meta">${meta}</div>
+        <div class="bang-chevron open">▾</div>
+      </div>
+      <div class="bang-body open">${rows}</div>
+    </div>`;
+  }).join('');
+}
+
+function toggleBang(head){
+  const body=head.nextElementSibling;
+  const chev=head.querySelector('.bang-chevron');
+  const open=body.classList.toggle('open');
+  if(chev)chev.classList.toggle('open',open);
+}
+
+// ══ RENDER BXH ══
+function renderStandings(){
+  const wrap=$('standings-content');
+  const res=getResults();
+  const KO=['Tứ kết','Bán kết','Chung kết','Hạng 3','Vòng 16','TK','BK','CK','H3'];
+  const isKo=n=>KO.some(k=>n.startsWith(k)||n.includes(k));
+
+  // Group by bang (pool only)
+  const byBang=new Map();
+  res.filter(r=>!isKo(String(r[3]||''))).forEach(r=>{
+    const b=String(r[3]||'');if(!b)return;
+    if(!byBang.has(b))byBang.set(b,[]);
+    byBang.get(b).push(r);
+  });
+
+  if(!byBang.size){
+    wrap.innerHTML='<div class="empty-state"><div class="empty-icon">🏅</div><div class="empty-msg">Chưa có kết quả để xếp hạng</div></div>';
+    return;
+  }
+
+  const sortedBangs=[...byBang.keys()].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true,sensitivity:'base'}));
+  const adv=sortedBangs.length>=2?2:1;
+
+  wrap.innerHTML=sortedBangs.map(bang=>{
+    const rows=byBang.get(bang);
+    const ts={};
+    // KetQua: [0]time,[1]giai,[2]nd,[3]bang,[4]code,[5]teamA,[6]teamB,[7]sA,[8]sB
+    rows.forEach(r=>{
+      const tA=String(r[5]||''),tB=String(r[6]||'');
+      const sA=Number(r[7]||0),sB=Number(r[8]||0);
+      [tA,tB].filter(Boolean).forEach(t=>{if(!ts[t])ts[t]={team:t,won:0,lost:0,pf:0,pa:0,played:0};});
+      if(!tA||!tB)return;
+      ts[tA].played++;ts[tB].played++;
+      ts[tA].pf+=sA;ts[tA].pa+=sB;
+      ts[tB].pf+=sB;ts[tB].pa+=sA;
+      if(sA>sB){ts[tA].won++;ts[tB].lost++;}
+      else if(sB>sA){ts[tB].won++;ts[tA].lost++;}
+    });
+    const st=Object.values(ts).sort((a,b)=>{
+      if(b.won!==a.won)return b.won-a.won;
+      const ad=a.pf-a.pa,bd=b.pf-b.pa;
+      if(bd!==ad)return bd-ad;
+      return b.pf-a.pf;
+    });
+    const rk=i=>i===0?'r1':i===1?'r2':i===2?'r3':'rn';
+    return `<div class="bxh-card">
+      <div class="bxh-head" onclick="toggleBxh(this)">
+        <div class="bxh-bang">${esc(bang)}</div>
+        <div class="bxh-meta">${st.length} đội · ${rows.length} trận</div>
+        <div class="bxh-arrow open">▾</div>
+      </div>
+      <div class="bxh-body open">
+        <table class="bxh-tbl">
+          <thead><tr><th>#</th><th>Đội</th><th>T</th><th>T/B</th><th>PT</th><th>PP</th><th>HS</th></tr></thead>
+          <tbody>${st.map((s,i)=>`<tr${i<adv?' class="adv"':''}>
+            <td><span class="rank-badge ${rk(i)}">${i+1}</span></td>
+            <td><span class="bxh-team">${esc(s.team)}</span>${i<adv?'<span class="adv-tag">▲</span>':''}</td>
+            <td>${s.played}</td>
+            <td><span class="w-badge">${s.won}</span> <span class="l-badge">${s.lost}</span></td>
+            <td>${s.pf}</td><td>${s.pa}</td>
+            <td style="color:${s.pf-s.pa>=0?'var(--gn)':'var(--rd)'};font-weight:700">${s.pf-s.pa>=0?'+':''}${s.pf-s.pa}</td>
+          </tr>`).join('')}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleBxh(head){
+  const body=head.nextElementSibling;
+  const arr=head.querySelector('.bxh-arrow');
+  const open=body.classList.toggle('open');
+  if(arr)arr.classList.toggle('open',open);
+}
+
+// ══ BOOT ══
+window.addEventListener('load',()=>{
+  $('gs-url').value=GAS_URL;
+  if(loadSaved()&&GS&&USER_CODE)startApp();
+});
+</script>
+</body>
+</html>
