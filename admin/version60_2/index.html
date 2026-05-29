@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 | v47 FIX: Phân công TT lỗi "Không xác định giải đấu"; Bracket full height; Toolbar nút đồng màu xanh dương, Thủ công/Tự động sáng xanh lá khi active | v49 FIX 2026-05-28: (1) Players persist localStorage — không mất khi navigate; (2) GAS dedup tính noidung | v54 2026-05-28: (3) Mỗi nội dung có danh sách VĐV độc lập (localStorage namespace by GS URL); (4) Nút Lưu danh sách / Sửa danh sách; (5) Chế độ read-only khi đã lưu | v51: Popup bốc thăm 5s + quản lý bảng | v52: Quy tắc cố định 4 đội/bảng | v53: Lưu DanhSachVDV+DanhSachBang lên GSheets | v54: skeleton loading cards, nút xóa nội dung, pre-cache, TTL 5 phút -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v60_2.3 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v60_2.4 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -2813,21 +2813,37 @@ function showApp() {
       if (!MANAGER_ALLOWED_PAGES.includes(btn.dataset.p)) btn.style.display = 'none';
     });
     // Điều hướng thẳng vào Quản lý giải khi login (hoặc restore từ hash)
-    if (!MY_GIAI_LIST.length) {
-      // Manager chưa có giải — có thể GAS cũ chưa trả giai, hoặc chưa được cấp quyền
-      // Thử fetch lại quyền từ GAS
-      gGet({ action:'validate', code:CODE, device:'AdminPanel' }, 8000).then(dv => {
-        if (dv?.valid && dv?.giai) {
-          MY_GIAI = dv.giai;
-          MY_GIAI_LIST = MY_GIAI.split(',').map(g=>g.trim()).filter(Boolean);
-          localStorage.setItem('pb_adm3', JSON.stringify({u:GS,c:CODE,n:NAME,r:ROLE,g:MY_GIAI}));
-          // Re-filter _T: so sánh cả tên lẫn ID (vì giai có thể lưu tên)
+    // Luôn fetch lại validate để đồng bộ quyền mới nhất (phòng manager tạm bị đổi quyền)
+    gGet({ action:'validate', code:CODE, device:'AdminPanel' }, 8000).then(dv => {
+      if (!dv?.valid) return;
+      const newGiai = dv.giai || '';
+      MY_GIAI = newGiai;
+      MY_GIAI_LIST = newGiai ? newGiai.split(',').map(g=>g.trim()).filter(Boolean) : [];
+      // Cập nhật session mới nhất
+      localStorage.setItem('pb_adm3', JSON.stringify({u:GS,c:CODE,n:NAME,r:ROLE,g:MY_GIAI}));
+      // Fetch lại danh sách giải từ GAS để đảm bảo _T đúng
+      gGet({ action:'tournaments', adminCode:CODE }, 8000).then(td => {
+        if (td?.ok && td?.rows?.length) {
+          const allT = td.rows.slice(1);
+          _resolveMyGiaiList();
+          _T = _filterTournsForRole(allT);
+          // Lưu cache theo CODE
+          try { localStorage.setItem('pb_adm_T_' + CODE, JSON.stringify(allT)); } catch(e){}
+        } else {
+          // Nếu không lấy được từ GAS, vẫn resolve từ _T hiện có
+          _resolveMyGiaiList();
           _T = _filterTournsForRole(_T);
-          if (document.getElementById('tv-list')?.style.display !== 'none') renderTournCards(_T);
-          populateTournamentDropdowns();
         }
-      }).catch(()=>{});
-    }
+        populateTournamentDropdowns();
+        if (document.getElementById('tv-list')?.style.display !== 'none') renderTournCards(_T);
+      }).catch(() => {
+        // Fallback: resolve trong bộ nhớ
+        _resolveMyGiaiList();
+        _T = _filterTournsForRole(_T);
+        populateTournamentDropdowns();
+        if (document.getElementById('tv-list')?.style.display !== 'none') renderTournCards(_T);
+      });
+    }).catch(()=>{});
     if (!_appShown) setTimeout(() => _restoreFromHash().then(ok => { if (!ok) nav('tournaments'); }), 100);
   } else {
     // Admin: restore từ hash nếu có, không thì về Dashboard
@@ -2849,7 +2865,8 @@ function showApp() {
     const lsR = localStorage.getItem(_lsRKey)     || localStorage.getItem('pb_adm_R');
     if (lsT) {
       let cachedT = JSON.parse(lsT);
-      // Manager: loại bỏ giải thừa từ cache cũ — luôn filter
+      // Manager: resolve tên giải → ID trước, rồi mới filter
+      _resolveMyGiaiList();
       _T = _filterTournsForRole(cachedT);
       populateTournamentDropdowns();
     }
