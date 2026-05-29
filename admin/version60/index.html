@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 | v47 FIX: Phân công TT lỗi "Không xác định giải đấu"; Bracket full height; Toolbar nút đồng màu xanh dương, Thủ công/Tự động sáng xanh lá khi active | v49 FIX 2026-05-28: (1) Players persist localStorage — không mất khi navigate; (2) GAS dedup tính noidung | v54 2026-05-28: (3) Mỗi nội dung có danh sách VĐV độc lập (localStorage namespace by GS URL); (4) Nút Lưu danh sách / Sửa danh sách; (5) Chế độ read-only khi đã lưu | v51: Popup bốc thăm 5s + quản lý bảng | v52: Quy tắc cố định 4 đội/bảng | v53: Lưu DanhSachVDV+DanhSachBang lên GSheets | v54: skeleton loading cards, nút xóa nội dung, pre-cache, TTL 5 phút -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v60 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v58 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -1418,7 +1418,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 
           <!-- Search + actions -->
           <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-            <input id="asgn-ref-search" type="text" placeholder="🔍 Tìm tên / mã TT..." oninput="filterAssignRefs()"
+            <input id="asgn-ref-search" type="text" placeholder="🔍 Tìm tên hoặc SĐT..." oninput="filterAssignRefs()"
               style="flex:1;min-width:180px;background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;padding:7px 11px;font-size:13px;color:var(--tx);outline:none">
             <button class="btn bh bsm" onclick="selectAllRefs(true)">Chọn tất cả</button>
             <button class="btn bh bsm" onclick="selectAllRefs(false)">Bỏ chọn</button>
@@ -10841,9 +10841,11 @@ function renderAssignRefsList(q) {
     .replace(/[\u0300-\u036f]/g,'').replace(/đ/gi,'d').toLowerCase();
 
   const filtered = _asgnAllRefs.filter(r => {
-    const nm = String(r[1]||'').toLowerCase();
-    const cd = String(r[0]||'').toLowerCase();
-    return !q || nm.includes(q) || cd.includes(q);
+    const nm  = String(r[1]||'').toLowerCase();
+    const cd  = String(r[0]||'').toLowerCase();
+    const ph  = String(r[10]||'').toLowerCase().replace(/\D/g,'');
+    const qNum = q.replace(/\D/g,'');
+    return !q || nm.includes(q) || cd.includes(q) || (qNum && ph.includes(qNum));
   });
 
   // Sort: đã chọn lên trên (A→Z), chưa chọn xuống dưới (A→Z)
@@ -11809,12 +11811,15 @@ function filterUsers() {
   const q    = document.getElementById('uq').value.toLowerCase();
   const giai = document.getElementById('u-giai-f').value;
   const role = document.getElementById('u-role-f').value;
-  renderUsers(_U.filter(r => {
+  const viKey = s => String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/gi,'d').toLowerCase();
+  const filtered = _U.filter(r => {
     if (giai && String(r[8]||'') !== giai) return false;
     if (role && String(r[7]||'').toLowerCase() !== role) return false;
     if (q) return [r[0],r[1],r[3],r[8],r[9]].some(v=>String(v||'').toLowerCase().includes(q));
     return true;
-  }));
+  });
+  filtered.sort((a,b) => viKey(a[1]).localeCompare(viKey(b[1])));
+  renderUsers(filtered);
 }
 function renderUsers(rows) {
   const tb = document.getElementById('u-tb');
@@ -11972,11 +11977,10 @@ function openUserMoFromTourn() {
         <div style="overflow-y:auto;flex:1;padding:14px 18px;display:grid;gap:12px">
           <!-- Tìm SĐT -->
           <div>
-            <div style="font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">🔍 Tìm theo số điện thoại</div>
+            <div style="font-size:10px;font-weight:700;color:var(--tx3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">🔍 Tìm theo tên hoặc SĐT</div>
             <div style="display:flex;gap:8px">
-              <input id="atr-phone" type="tel" placeholder="Nhập SĐT..."
+              <input id="atr-phone" type="text" placeholder="Nhập tên hoặc SĐT..."
                 onkeydown="if(event.key==='Enter') atrSearch()"
-                oninput="this.value=this.value.replace(/[^0-9]/g,'')"
                 style="flex:1;background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;padding:8px 12px;font-size:14px;color:var(--tx);outline:none">
               <button onclick="atrSearch()" style="padding:8px 14px;background:var(--ac);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">🔍 Tìm</button>
             </div>
@@ -12032,8 +12036,11 @@ async function atrRenderLists() {
     const st = String(u[7]||'').toLowerCase();
     return st === 'active' || st === 'khóa';
   });
-  const assigned   = refs.filter(u => { const g=String(u[8]||'').toUpperCase(); return g&&(g===giaiUp||g===giaiId||g.includes(giaiId)||g.includes(giaiUp)); });
-  const unassigned = refs.filter(u => { const g=String(u[8]||'').toUpperCase(); return !g||(g!==giaiUp&&g!==giaiId&&!g.includes(giaiId)&&!g.includes(giaiUp)); });
+  const viKeyU = s => String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/gi,'d').toLowerCase();
+  const assigned   = refs.filter(u => { const g=String(u[8]||'').toUpperCase(); return g&&(g===giaiUp||g===giaiId||g.includes(giaiId)||g.includes(giaiUp)); })
+    .sort((a,b) => viKeyU(a[1]).localeCompare(viKeyU(b[1])));
+  const unassigned = refs.filter(u => { const g=String(u[8]||'').toUpperCase(); return !g||(g!==giaiUp&&g!==giaiId&&!g.includes(giaiId)&&!g.includes(giaiUp)); })
+    .sort((a,b) => viKeyU(a[1]).localeCompare(viKeyU(b[1])));
 
   const assignedEl   = document.getElementById('atr-assigned-rows');
   const unassignedEl = document.getElementById('atr-unassigned-rows');
@@ -12090,16 +12097,24 @@ async function atrUnassign(code, phone, name) {
 }
 
 async function atrSearch() {
-  const phone = (document.getElementById('atr-phone').value||'').trim().replace(/\D/g,'');
+  const rawQ = (document.getElementById('atr-phone').value||'').trim();
+  const phone = rawQ.replace(/\D/g,'');
   const res   = document.getElementById('atr-result');
   const btn   = document.getElementById('atr-confirm-btn');
   _assignRefFound = null;
   btn.style.display = 'none';
-  if (!phone) { res.style.display=''; res.innerHTML='<div style="color:var(--rd);font-size:12px">⚠️ Nhập số điện thoại</div>'; return; }
+  if (!rawQ) { res.style.display=''; res.innerHTML='<div style="color:var(--rd);font-size:12px">⚠️ Nhập tên hoặc SĐT</div>'; return; }
   res.style.display=''; res.innerHTML='<span class="spin"></span>';
   await atrEnsureUsers();
-  const found = (_U||[]).find(u => String(u[10]||'').replace(/\D/g,'') === phone);
-  if (!found) { res.innerHTML=`<div style="color:var(--rd);font-size:13px">❌ Không tìm thấy TT với SĐT: ${phone}</div>`; return; }
+  const viKeyS = s => String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/gi,'d').toLowerCase();
+  const found = (_U||[]).find(u => {
+    const uPhone = String(u[10]||'').replace(/\D/g,'');
+    const uName  = viKeyS(String(u[1]||''));
+    if (phone && uPhone && uPhone === phone) return true;
+    if (uName.includes(viKeyS(rawQ))) return true;
+    return false;
+  });
+  if (!found) { res.innerHTML=`<div style="color:var(--rd);font-size:13px">❌ Không tìm thấy trọng tài: ${esc(rawQ)}</div>`; return; }
   _assignRefFound = {code:String(found[0]||''),name:String(found[1]||''),phone:String(found[10]||phone),giai:String(found[8]||'')};
   const inGiai = _assignRefFound.giai.toUpperCase().includes(_assignTournGiaiId.toUpperCase())||_assignRefFound.giai.toUpperCase().includes(_assignTournGiaiName.toUpperCase());
   res.innerHTML=`<div style="display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;padding:10px">
