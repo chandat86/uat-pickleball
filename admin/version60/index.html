@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 | v47 FIX: Phân công TT lỗi "Không xác định giải đấu"; Bracket full height; Toolbar nút đồng màu xanh dương, Thủ công/Tự động sáng xanh lá khi active | v49 FIX 2026-05-28: (1) Players persist localStorage — không mất khi navigate; (2) GAS dedup tính noidung | v54 2026-05-28: (3) Mỗi nội dung có danh sách VĐV độc lập (localStorage namespace by GS URL); (4) Nút Lưu danh sách / Sửa danh sách; (5) Chế độ read-only khi đã lưu | v51: Popup bốc thăm 5s + quản lý bảng | v52: Quy tắc cố định 4 đội/bảng | v53: Lưu DanhSachVDV+DanhSachBang lên GSheets | v54: skeleton loading cards, nút xóa nội dung, pre-cache, TTL 5 phút -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v60.3 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v60.4 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -2237,6 +2237,20 @@ const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycby8rbRYmhEALtSx
 // ════════════════════════════════════════════════════════════════
 let GS='', CODE='', NAME='', ROLE='', MY_GIAI='', MY_GIAI_LIST=[]; // thông tin đăng nhập
 
+// Resolve MY_GIAI_LIST: nếu lưu tên giải thì đổi sang giaiId để filter đúng
+function _resolveMyGiaiList() {
+  if (!_T.length || !MY_GIAI_LIST.length) return;
+  MY_GIAI_LIST = MY_GIAI_LIST.map(g => {
+    // Thử khớp theo tên giải → lấy ID
+    const byName = _T.find(t => String(t[1]||'').trim().toUpperCase() === g.trim().toUpperCase());
+    if (byName) return String(byName[0]||g).trim();
+    // Thử khớp theo ID → giữ nguyên
+    const byId = _T.find(t => String(t[0]||'').trim().toUpperCase() === g.trim().toUpperCase());
+    if (byId) return String(byId[0]||g).trim();
+    return g;
+  });
+}
+
 // Sync MY_GIAI_LIST with owned tournaments so filter always works
 function _syncManagerGiaiList() {
   if (ROLE !== 'manager' || !_T.length) return;
@@ -2680,7 +2694,7 @@ async function doLogin() {
     GS = baseUrl; CODE = code; NAME = d.name;
     ROLE    = d.isAdmin ? 'admin' : 'manager';
     MY_GIAI = d.giai || '';
-      MY_GIAI_LIST = MY_GIAI ? MY_GIAI.split(',').map(g=>g.trim()).filter(Boolean) : [];
+    MY_GIAI_LIST = MY_GIAI ? MY_GIAI.split(',').map(g=>g.trim()).filter(Boolean) : [];
     localStorage.setItem('pb_adm3', JSON.stringify({u:baseUrl,c:code,n:NAME,r:ROLE,g:MY_GIAI}));
     if (btnTxt) btnTxt.textContent = '✅ Thành công!';
     setTimeout(() => showApp(), 200);
@@ -3333,6 +3347,8 @@ function emptyRow(colspan, icon, msg) { return `<tr><td colspan="${colspan}"><di
 
 // Điền tất cả dropdown giải đấu
 function populateTournamentDropdowns() {
+  // Resolve tên giải → giaiId trong MY_GIAI_LIST (phòng trường hợp lưu tên thay vì ID)
+  _resolveMyGiaiList();
   const ids = ['dash-giai','bxh-giai','asgn-giai','clear-giai','m-giai','r-giai','u-giai','p-giai','rr-giai','m-giai-i','assign-giai','bk-giai'];
   const tourns = ROLE === 'manager' ? _T.filter(r => MY_GIAI_LIST.includes(String(r[0]||''))) : _T;
   ids.forEach(id => {
@@ -11877,6 +11893,18 @@ function _updateUserRoleFields() {
   if (courts) courts.value = '';
   if (rounds) rounds.value = '';
   if (nd) nd.value = '';
+  // Khi chuyển từ active → manager: tự động pre-select giải đang có vào manager picker
+  if (isManager) {
+    const refSel = document.getElementById('u-giai-ref-sel');
+    const currentGiai = refSel ? refSel.value : '';
+    if (currentGiai) {
+      // Tìm giaiId tương ứng với tên giải
+      const t = _T.find(t => String(t[1]||t[0]||'') === currentGiai || String(t[0]||'') === currentGiai);
+      const giaiId = t ? String(t[0]||'') : currentGiai;
+      _buildManagerGiaiPicker([giaiId]);
+      document.getElementById('u-giai').value = giaiId;
+    }
+  }
 }
 function _buildManagerGiaiPicker(selectedList) {
   // selectedList: array of giai IDs
