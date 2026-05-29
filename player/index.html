@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-<title>Player v2.1— Xem Giải Đấu</title>
+<title>Pickleball v3.22— Xem Giải Đấu</title>
 <style>
 /* system font - no import needed */
 :root{
@@ -359,7 +359,7 @@ body{font-family:var(--fn);background:var(--bg);color:var(--tx);min-height:100vh
       <p>Nhập số điện thoại được cấp để xem giải đấu</p>
       <label class="fl" style="display:none">Địa chỉ hệ thống</label>
       <input class="fi" id="gs-url" autocomplete="off" style="display:none"
-        value="https://script.google.com/macros/s/AKfycbyLujKd3ONX6RZffuMaHSWKgGCGN6k6dAwp3kEEw05Shs6u4jctSpwe6-B7tw8yTCKL/exec">
+        value="https://script.google.com/macros/s/AKfycbwcTPQzRdPAxSxPIaa1jMmGbyy7u5JHHx9BdKjjUPlmOYr3I7PMMSeymwQNIBy4SeES/exec">
       <label class="fl">Số điện thoại / Mã đăng nhập</label>
       <input class="fi" id="login-id" placeholder="0901234567" inputmode="tel" autocomplete="off"
         onkeydown="if(event.key==='Enter')doLogin()">
@@ -591,6 +591,7 @@ function switchTab(tab){
   _curTab=tab;
   document.querySelectorAll('.ntab').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
   document.querySelectorAll('.page').forEach(p=>p.classList.toggle('on',p.id==='tab-'+tab));
+  renderNdFilter();
   renderCurrentTab();
 }
 function renderCurrentTab(){
@@ -891,7 +892,6 @@ function toggleBxh(head){
 }
 
 // ══ BRACKET (CÂY THI ĐẤU) ══
-let _bkCurNd = '';
 
 function _ceil2(n){let p=1;while(p<n)p*=2;return p;}
 
@@ -1163,28 +1163,9 @@ function _bkBuildAndRenderTree(nd,wrap){
   const koRoundsOnly=roundMatches.filter(r=>r.cls!=='bk-h3');
   const h3Round=roundMatches.find(r=>r.cls==='bk-h3');
 
-  // ── Group cards (vòng bảng summary) ──
+  // ── KO bracket only ──
   let html='';
-  if(bangs.length){
-    html+=`<div class="bk-sec"><span>📋 Vòng bảng</span><div class="bk-sec-line"></div></div>`;
-    html+=`<div class="bk-gcards-wrap">`;
-    bangs.forEach(bang=>{
-      const st=seeds[bang]||[];
-      const bm=_M.filter(m=>String(m[1]||'')===nd&&String(m[2]||'')===bang&&(!String(m[9]||'')||String(m[9]||'').includes('bảng')));
-      const doneC=bm.filter(m=>{const v=m[5];return v!==''&&v!=null;}).length;
-      const isComplete=bangDone?.[bang];
-      const stCls=isComplete?'st-done':doneC>0?'st-partial':'st-pending';
-      let h=`<div class="bk-gcard"><div class="bk-gcard-hd"><span class="bk-gcard-name">${esc(bang)}</span><span class="bk-gcard-st ${stCls}">${isComplete?'✓':''} ${doneC}/${bm.length}</span></div>`;
-      if(!st.length)h+=`<div class="bk-grank"><span style="font-size:10px;color:var(--tx4)">Chưa có kết quả</span></div>`;
-      else st.slice(0,3).forEach((s,i)=>{const medals=['🥇','🥈','🥉'];const rCls=i===0?'gr1':i===1?'gr2':'';h+=`<div class="bk-grank ${rCls}"><span class="bk-grank-n">${medals[i]}</span><span class="bk-grank-t" title="${esc(s.team)}">${esc(s.team)}</span><span class="bk-grank-s">${s.won}W&nbsp;<b>${s.played||0}T</b></span></div>`;});
-      html+=h+'</div>';
-    });
-    html+='</div>';
-  }
-
-  // ── KO bracket ──
   if(koRoundsOnly.length){
-    html+=`<div class="bk-sec" style="margin-top:8px"><span>🏆 Vòng loại trực tiếp</span><div class="bk-sec-line"></div></div>`;
     html+='<div class="bk-scroll"><div class="bk-bracket">';
     koRoundsOnly.forEach((round,ri)=>{
       const nM=round.matches.length,isLast=ri===koRoundsOnly.length-1;
@@ -1223,8 +1204,8 @@ function _bkBuildAndRenderTree(nd,wrap){
       const fs3=done3?_bkGetMatchScore(nd,bang3,m3.code):null;
       html+=`<div style="margin-top:10px"><div class="bk-scroll"><div class="bk-bracket"><div class="bk-round"><div class="bk-round-label lbl-3rd">Hạng 3</div><div class="bk-round-slots"><div class="bk-slot">${mkCard(m3,done3,false,fs3,'c-3rd')}</div></div></div></div></div></div>`;
     }
-  }else if(bangs.length){
-    html+=`<div style="background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.2);border-radius:10px;padding:14px;margin-top:10px;font-size:12px;color:var(--tx3);text-align:center">🏆 Vòng loại trực tiếp chưa được tạo</div>`;
+  }else{
+    html='<div class="empty-state"><div class="empty-icon">🏆</div><div class="empty-msg">Vòng loại trực tiếp chưa được tạo</div></div>';
   }
 
   wrap.innerHTML=html;
@@ -1232,33 +1213,24 @@ function _bkBuildAndRenderTree(nd,wrap){
 
 function renderBracketTab(){
   const wrap=$('bracket-content');
-  // Lấy danh sách nội dung
-  const gUp=(_giaiName||USER_GIAI||'').toUpperCase();
-  const nds=[...new Set(_M.filter(m=>!gUp||String(m[0]||'').trim().toUpperCase()===gUp).map(m=>String(m[1]||'')).filter(Boolean))];
-  // Filter theo USER_ND nếu có
-  let visibleNds=nds;
-  if(USER_ND&&USER_ND.trim()){
-    const allowed=USER_ND.split(',').map(s=>s.trim()).filter(Boolean);
-    visibleNds=nds.filter(nd=>allowed.some(a=>nd.toLowerCase()===a.toLowerCase()||nd.includes(a)||a.includes(nd)));
-    if(!visibleNds.length)visibleNds=nds;
-  }
-  if(!visibleNds.length){
-    wrap.innerHTML='<div class="empty-state"><div class="empty-icon">🏆</div><div class="empty-msg">Chưa có dữ liệu</div><div class="empty-sub">Tải lại để cập nhật</div></div>';
+  const nd=_curNd;
+  if(!nd){
+    wrap.innerHTML='<div class="empty-state"><div class="empty-icon">🏆</div><div class="empty-msg">Chọn nội dung thi đấu</div><div class="empty-sub">Dùng bộ lọc bên trên để chọn nội dung</div></div>';
     return;
   }
-  if(!_bkCurNd||!visibleNds.includes(_bkCurNd))_bkCurNd=visibleNds[0];
-
-  let html='';
-  // Tabs selector nếu có nhiều nội dung
-  if(visibleNds.length>1){
-    html+=`<div class="bk-nd-tabs">${visibleNds.map(nd=>`<button class="bk-nd-tab${nd===_bkCurNd?' on':''}" onclick="selectBkNd('${esc(nd)}')">${esc(nd)}</button>`).join('')}</div>`;
-  }
-  wrap.innerHTML=html+'<div id="bk-inner"></div>';
-  _bkBuildAndRenderTree(_bkCurNd,$('bk-inner'));
+  wrap.innerHTML='<div id="bk-inner"></div>';
+  _bkBuildAndRenderTree(nd,$('bk-inner'));
 }
 
 function selectBkNd(nd){
-  _bkCurNd=nd;
+  _curNd=nd;
+  renderNdFilter();
+  renderBracketTab();
+}
+
+function selectBkNd(nd){
+  _curNd=nd;
+  renderNdFilter();
   renderBracketTab();
 }
 
