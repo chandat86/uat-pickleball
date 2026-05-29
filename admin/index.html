@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 | v47 FIX: Phân công TT lỗi "Không xác định giải đấu"; Bracket full height; Toolbar nút đồng màu xanh dương, Thủ công/Tự động sáng xanh lá khi active | v49 FIX 2026-05-28: (1) Players persist localStorage — không mất khi navigate; (2) GAS dedup tính noidung | v54 2026-05-28: (3) Mỗi nội dung có danh sách VĐV độc lập (localStorage namespace by GS URL); (4) Nút Lưu danh sách / Sửa danh sách; (5) Chế độ read-only khi đã lưu | v51: Popup bốc thăm 5s + quản lý bảng | v52: Quy tắc cố định 4 đội/bảng | v53: Lưu DanhSachVDV+DanhSachBang lên GSheets | v54: skeleton loading cards, nút xóa nội dung, pre-cache, TTL 5 phút -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v57.5 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v58 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -898,10 +898,9 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
           <div class="ab">ADMIN PANEL</div>
         </div>
       </div>
-      <label class="lbl">🔗 Google Apps Script URL</label>
-      <input class="fi" type="text" id="gs-url" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off" value="https://script.google.com/macros/s/AKfycbyLujKd3ONX6RZffuMaHSWKgGCGN6k6dAwp3kEEw05Shs6u4jctSpwe6-B7tw8yTCKL/exec"
-        oninput="localStorage.setItem('pb_gs_url',this.value.trim())"
-        onpaste="setTimeout(()=>localStorage.setItem('pb_gs_url',this.value.trim()),50)">
+      
+      <!-- GAS URL ẩn — đã hardcode DEFAULT_GAS_URL -->
+      <input type="hidden" id="gs-url" value="https://script.google.com/macros/s/AKfycby8rbRYmhEALtSxWYec4Ylpu0_STuP8DY6Sawzm4-R1uNtbUVKWOcmrCSsQ6EbQviM9/exec">
       <label class="lbl">🔑 Mã đăng nhập</label>
       <input class="fi" type="text" id="adm-code" placeholder="ADMIN001 hoặc MGR001" maxlength="20" autocomplete="off"
         oninput="localStorage.setItem('pb_adm_code',this.value.trim())"
@@ -2234,6 +2233,11 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 
 <script>
 // ════════════════════════════════════════════════════════════════
+//  DEFAULT GAS URL — thay đổi ở đây nếu deploy lại GAS
+// ════════════════════════════════════════════════════════════════
+const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycby8rbRYmhEALtSxWYec4Ylpu0_STuP8DY6Sawzm4-R1uNtbUVKWOcmrCSsQ6EbQviM9/exec';
+
+// ════════════════════════════════════════════════════════════════
 //  STATE
 // ════════════════════════════════════════════════════════════════
 let GS='', CODE='', NAME='', ROLE='', MY_GIAI='', MY_GIAI_LIST=[]; // thông tin đăng nhập
@@ -2537,11 +2541,12 @@ window.onload = () => {
   });
 
   // ── Khôi phục URL + code đã lưu vào form ──
-  const savedUrl  = localStorage.getItem('pb_gs_url') || '';
+  // Ưu tiên: localStorage → DEFAULT_GAS_URL (không cần copy paste mỗi lần)
+  const savedUrl  = localStorage.getItem('pb_gs_url') || DEFAULT_GAS_URL;
   const savedCode = localStorage.getItem('pb_adm_code') || '';
   const urlEl  = document.getElementById('gs-url');
   const codeEl = document.getElementById('adm-code');
-  if (urlEl  && savedUrl)  urlEl.value  = savedUrl;
+  if (urlEl)  urlEl.value  = savedUrl;
   if (codeEl && savedCode) codeEl.value = savedCode;
 
   // ── Khôi phục session nếu đã login trước ──
