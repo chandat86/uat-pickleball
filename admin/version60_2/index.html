@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 | v47 FIX: Phân công TT lỗi "Không xác định giải đấu"; Bracket full height; Toolbar nút đồng màu xanh dương, Thủ công/Tự động sáng xanh lá khi active | v49 FIX 2026-05-28: (1) Players persist localStorage — không mất khi navigate; (2) GAS dedup tính noidung | v54 2026-05-28: (3) Mỗi nội dung có danh sách VĐV độc lập (localStorage namespace by GS URL); (4) Nút Lưu danh sách / Sửa danh sách; (5) Chế độ read-only khi đã lưu | v51: Popup bốc thăm 5s + quản lý bảng | v52: Quy tắc cố định 4 đội/bảng | v53: Lưu DanhSachVDV+DanhSachBang lên GSheets | v54: skeleton loading cards, nút xóa nội dung, pre-cache, TTL 5 phút -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v60_2.4 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v60_2.5 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -2869,6 +2869,13 @@ function showApp() {
       _resolveMyGiaiList();
       _T = _filterTournsForRole(cachedT);
       populateTournamentDropdowns();
+      // Preload matches của giải đầu tiên (nền, không block)
+      if (_T.length) {
+        const firstId = String(_T[0][0]||'');
+        if (firstId && !cacheGet('matches_' + String(_T[0][1]||firstId))) {
+          loadMatchesCache(firstId, false).catch(()=>{});
+        }
+      }
     }
     // _M không restore từ localStorage — matches thay đổi thường xuyên (xóa/thêm/kết quả)
     // → luôn fetch từ GAS để tránh hiện trận đã xóa sau reload
@@ -3119,16 +3126,19 @@ async function prefetchAll() {
     _showGasOk();
     if (_curPage === 'bracket') bkInit();
     dedupM();
-    // Pre-populate match counts cho tất cả giải (không block UI)
-    // → Khi user click vào giải, cards hiển thị ngay số trận đúng
+    // Pre-populate match counts cho tất cả giải
     if (_M.length > 0 && _T.length > 0) {
       _T.forEach(t => {
         const gn = String(t[1]||'');
-        if (gn && !cacheGet('matches_'+gn)) {
+        if (gn) {
           const rows = _M.filter(r => String(r[0]||'') === gn);
           if (rows.length) cacheSet('matches_'+gn, rows);
         }
       });
+      // Nếu đang xem detail giải → re-render ndCards với số trận đúng
+      if (_curTourn && document.getElementById('nd-cards')) {
+        renderNdCards(_curTourn, false);
+      }
     }
     // ── Lưu vào localStorage để lần sau render instant ──
     try {
@@ -4485,22 +4495,17 @@ async function openTournDetail(id) {
   document.getElementById('td-sub').textContent  = (r[2]||'') + (r[4]?' · '+fmtD(r[4])+' → '+fmtD(r[5]):'');
   showTournView('detail');
 
-  // Kiểm tra xem cache matches đã có chưa
+  // Render ngay lập tức từ data _T (tên nội dung, sân... đã có sẵn)
+  // Không chờ matches — load matches nền sau
+  renderNdCards(r, false);
+
+  // Load matches nền (không block UI)
   const giaiName = String(r[1]||id);
   const cached = cacheGet('matches_' + giaiName);
-
-  if (cached) {
-    // Cache còn mới → render ngay, không cần spinner
-    renderNdCards(r, false);
-  } else {
-    // Chưa có cache → render skeleton trước (UX không bị block)
-    renderNdCards(r, true);
-    try {
-      await loadMatchesCache(id, false);
-      if (_curTourn === r) renderNdCards(r, false);
-    } catch(e) {
-      if (_curTourn === r) renderNdCards(r, false);
-    }
+  if (!cached) {
+    loadMatchesCache(id, false)
+      .then(() => { if (_curTourn === r) renderNdCards(r, false); })
+      .catch(() => {});
   }
 }
 
@@ -12136,28 +12141,49 @@ async function atrRenderLists() {
 }
 
 async function atrAssignDirect(code, phone, name) {
+  // Optimistic UI: cập nhật ngay, gọi GAS nền
+  const idx = (_U||[]).findIndex(u => String(u[0]||'').toUpperCase() === code.toUpperCase());
+  const oldGiai = idx >= 0 ? _U[idx][8] : '';
+  if (idx >= 0) _U[idx][8] = _assignTournGiaiName;
+  atrRenderLists();
   try {
     const d = await gPost({action:'assignRef',adminCode:CODE,refCode:code,refPhone:phone,giai:_assignTournGiaiName,courts:'',rounds:'',noidung:''});
     if (d?.ok) {
       toast(`✅ Đã phân công ${name} → ${_assignTournGiaiName}`, 'ok');
-      const idx = (_U||[]).findIndex(u => String(u[0]||'').toUpperCase() === code.toUpperCase());
-      if (idx >= 0) _U[idx][8] = _assignTournGiaiName;
+    } else {
+      // Rollback nếu lỗi
+      if (idx >= 0) _U[idx][8] = oldGiai;
       atrRenderLists();
-    } else toast(`❌ ${d?.reason||'Lỗi'}`, 'er');
-  } catch(e) { toast('❌ Lỗi kết nối', 'er'); }
+      toast(`❌ ${d?.reason||'Lỗi'}`, 'er');
+    }
+  } catch(e) {
+    if (idx >= 0) _U[idx][8] = oldGiai;
+    atrRenderLists();
+    toast('❌ Lỗi kết nối', 'er');
+  }
 }
 
 async function atrUnassign(code, phone, name) {
   if (!confirm(`Bỏ phân công ${name} khỏi giải này?`)) return;
+  // Optimistic UI: cập nhật ngay, gọi GAS nền
+  const idx = (_U||[]).findIndex(u => String(u[0]||'').toUpperCase() === code.toUpperCase());
+  const oldGiai = idx >= 0 ? _U[idx][8] : '';
+  if (idx >= 0) _U[idx][8] = '';
+  atrRenderLists();
   try {
     const d = await gPost({action:'assignRef',adminCode:CODE,refCode:code,refPhone:phone,giai:'',courts:'',rounds:'',noidung:''});
     if (d?.ok) {
       toast(`🗑 Đã bỏ phân công ${name}`, 'ok');
-      const idx = (_U||[]).findIndex(u => String(u[0]||'').toUpperCase() === code.toUpperCase());
-      if (idx >= 0) _U[idx][8] = '';
+    } else {
+      if (idx >= 0) _U[idx][8] = oldGiai;
       atrRenderLists();
-    } else toast(`❌ ${d?.reason||'Lỗi'}`, 'er');
-  } catch(e) { toast('❌ Lỗi kết nối', 'er'); }
+      toast(`❌ ${d?.reason||'Lỗi'}`, 'er');
+    }
+  } catch(e) {
+    if (idx >= 0) _U[idx][8] = oldGiai;
+    atrRenderLists();
+    toast('❌ Lỗi kết nối', 'er');
+  }
 }
 
 async function atrSearch() {
