@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 | v47 FIX: Phân công TT lỗi "Không xác định giải đấu"; Bracket full height; Toolbar nút đồng màu xanh dương, Thủ công/Tự động sáng xanh lá khi active | v49 FIX 2026-05-28: (1) Players persist localStorage — không mất khi navigate; (2) GAS dedup tính noidung | v54 2026-05-28: (3) Mỗi nội dung có danh sách VĐV độc lập (localStorage namespace by GS URL); (4) Nút Lưu danh sách / Sửa danh sách; (5) Chế độ read-only khi đã lưu | v51: Popup bốc thăm 5s + quản lý bảng | v52: Quy tắc cố định 4 đội/bảng | v53: Lưu DanhSachVDV+DanhSachBang lên GSheets | v54: skeleton loading cards, nút xóa nội dung, pre-cache, TTL 5 phút -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v60_2.8 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v60_81 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -12141,9 +12141,16 @@ function atrRenderLists() {
     </div>`).join('');
 }
 
+function _atrFindIdx(code, phone) {
+  // Tìm theo mã trước, fallback theo SĐT (TT không có mã)
+  let idx = (code) ? (_U||[]).findIndex(u => String(u[0]||'').toUpperCase() === code.toUpperCase()) : -1;
+  if (idx < 0 && phone) idx = (_U||[]).findIndex(u => String(u[10]||'').replace(/\D/g,'') === phone.replace(/\D/g,''));
+  return idx;
+}
+
 async function atrAssignDirect(code, phone, name) {
   // Optimistic UI: cập nhật ngay, gọi GAS nền
-  const idx = (_U||[]).findIndex(u => String(u[0]||'').toUpperCase() === code.toUpperCase());
+  const idx = _atrFindIdx(code, phone);
   const oldGiai = idx >= 0 ? _U[idx][8] : '';
   if (idx >= 0) _U[idx][8] = _assignTournGiaiName;
   atrRenderLists();
@@ -12167,7 +12174,7 @@ async function atrAssignDirect(code, phone, name) {
 async function atrUnassign(code, phone, name) {
   if (!confirm(`Bỏ phân công ${name} khỏi giải này?`)) return;
   // Optimistic UI: cập nhật ngay, gọi GAS nền
-  const idx = (_U||[]).findIndex(u => String(u[0]||'').toUpperCase() === code.toUpperCase());
+  const idx = _atrFindIdx(code, phone);
   const oldGiai = idx >= 0 ? _U[idx][8] : '';
   if (idx >= 0) _U[idx][8] = '';
   atrRenderLists();
