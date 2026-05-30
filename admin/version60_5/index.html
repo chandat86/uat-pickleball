@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 | v47 FIX: Phân công TT lỗi "Không xác định giải đấu"; Bracket full height; Toolbar nút đồng màu xanh dương, Thủ công/Tự động sáng xanh lá khi active | v49 FIX 2026-05-28: (1) Players persist localStorage — không mất khi navigate; (2) GAS dedup tính noidung | v54 2026-05-28: (3) Mỗi nội dung có danh sách VĐV độc lập (localStorage namespace by GS URL); (4) Nút Lưu danh sách / Sửa danh sách; (5) Chế độ read-only khi đã lưu | v51: Popup bốc thăm 5s + quản lý bảng | v52: Quy tắc cố định 4 đội/bảng | v53: Lưu DanhSachVDV+DanhSachBang lên GSheets | v54: skeleton loading cards, nút xóa nội dung, pre-cache, TTL 5 phút -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v60_5.3 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v60_5.4 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -9407,58 +9407,68 @@ function bkLookupSeedInput(slot) {
 // ── BYE inline: xác nhận giữ BYE (đội kia tự vào ngay) ──
 function bkPickLuckySlot(code, side) {
   if (!_bkGiai || !_bkNd) { toast('Chọn giải và nội dung trước','er'); return; }
-  // Lấy tất cả đội đã biết từ vòng bảng
-  const { seeds, bangs } = _bkCalcSeeds(_bkGiai, _bkNd);
-  const allTeams = [];
+  const { seeds, bangs, bangDone } = _bkCalcSeeds(_bkGiai, _bkNd);
+  const rankLabel = ['Nhất','Nhì','Ba','Tư','Năm','Sáu','Bảy','Tám'];
+  // Build danh sách: 1A, 2A, 3A... 1B, 2B... sắp xếp theo bảng → hạng
+  const allSeeds = [];
   bangs.forEach(bang => {
-    (seeds[bang]||[]).forEach(s => { if (s.team) allTeams.push({ team: s.team, bang, rank: s.rank }); });
+    (seeds[bang]||[]).forEach(s => {
+      if (!s.team) return;
+      const label = (s.rank) + bang; // "1A", "2B", "3C"...
+      const rankLbl = rankLabel[s.rank-1] || ('#'+s.rank);
+      allSeeds.push({ label, team: s.team, bang, rank: s.rank, rankLbl, done: !!bangDone[bang] });
+    });
   });
-  allTeams.sort((a,b) => a.bang.localeCompare(b.bang) || a.rank - b.rank);
+  allSeeds.sort((a,b) => a.bang.localeCompare(b.bang) || a.rank - b.rank);
 
   const el = document.createElement('div');
   el.id = 'bk-lucky-slot-mo';
   el.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.65)';
   el.innerHTML = `
     <div style="background:var(--bg2);border:1px solid var(--bdr2);border-radius:16px;
-      padding:24px;width:min(400px,96vw);max-height:80vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.4)">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      padding:20px;width:min(420px,96vw);max-height:82vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.4)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <div>
-          <div style="font-size:14px;font-weight:700">🍀 Chọn đội Lucky — ${code} slot ${side==='A'?'trên':'dưới'}</div>
-          <div style="font-size:11px;color:var(--tx3);margin-top:2px">Đội này sẽ thi đấu. Người thắng điền vào vòng tiếp.</div>
+          <div style="font-size:14px;font-weight:700;color:var(--tx)">🍀 Chọn đội Lucky — ${code} <span style="color:var(--tx3);font-size:12px">slot ${side==='A'?'trên':'dưới'}</span></div>
+          <div style="font-size:11px;color:var(--tx3);margin-top:2px">Đội thắng trận này sẽ tự điền vào vòng tiếp</div>
         </div>
         <button class="mc" onclick="document.getElementById('bk-lucky-slot-mo').remove()">✕</button>
       </div>
-      <input id="lucky-slot-search" type="text" placeholder="🔍 Tìm đội..."
+      <input id="lucky-slot-search" type="text" placeholder="🔍 Tìm tên đội hoặc vị trí (1A, 2B...)"
         oninput="bkFilterLuckyList(this.value)"
         style="width:100%;box-sizing:border-box;background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;padding:8px 10px;font-size:13px;color:var(--tx);margin-bottom:10px;outline:none">
-      <div id="lucky-slot-list">
-        ${allTeams.map((t,i) => `
+      <div id="lucky-slot-list" style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        ${allSeeds.map((s,i) => `
           <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;
-            border:1.5px solid var(--bdr);margin-bottom:4px;cursor:pointer;background:var(--bg3)"
+            border:1.5px solid var(--bdr);cursor:pointer;background:var(--bg3);transition:border-color .1s"
             onmouseover="this.style.borderColor='var(--pu)'" onmouseout="this.style.borderColor='var(--bdr)'"
-            data-team="${esc(t.team).toLowerCase()}">
-            <input type="radio" name="lucky-slot-team" value="${esc(t.team)}" style="accent-color:var(--pu)"${i===0?' checked':''}>
-            <div>
-              <span style="font-size:13px;font-weight:600">${esc(t.team)}</span>
-              <span style="font-size:10px;color:var(--tx3);margin-left:6px">Bảng ${t.bang} · Hạng ${t.rank}</span>
+            data-q="${s.label.toLowerCase()} ${s.team.toLowerCase()}">
+            <input type="radio" name="lucky-slot-team" value="${esc(s.team)}" style="accent-color:var(--pu)"${i===0?' checked':''}>
+            <div style="min-width:0">
+              <div style="display:flex;align-items:center;gap:5px">
+                <span style="font-size:13px;font-weight:800;color:var(--ac)">${s.label}</span>
+                ${!s.done?'<span style="font-size:9px;color:var(--or);background:rgba(245,158,11,.12);border-radius:4px;padding:1px 4px">chờ KQ</span>':''}
+              </div>
+              <div style="font-size:11px;color:var(--tx);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(s.team)}">${esc(s.team)}</div>
+              <div style="font-size:10px;color:var(--tx3)">${s.rankLbl} Bảng ${s.bang}</div>
             </div>
           </label>`).join('')}
-        ${allTeams.length===0?'<div style="color:var(--tx3);font-size:12px;padding:8px">Chưa có đội (vòng bảng chưa xong)</div>':''}
+        ${allSeeds.length===0?'<div style="color:var(--tx3);font-size:12px;padding:8px;grid-column:span 2">⚠️ Chưa có dữ liệu bảng đấu</div>':''}
       </div>
       <div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end">
         <button class="btn bh bsm" onclick="document.getElementById('bk-lucky-slot-mo').remove()">Huỷ</button>
-        <button class="btn bsm bk-ll-btn" onclick="bkApplyLuckySlot('${code}','${side}')">🍀 Xác nhận</button>
+        <button class="btn bsm bk-ll-btn" onclick="bkApplyLuckySlot('${code}','${side}')">🍀 Xác nhận & Lưu</button>
       </div>
     </div>`;
   document.body.appendChild(el);
-  document.getElementById('lucky-slot-search').focus();
+  setTimeout(() => document.getElementById('lucky-slot-search')?.focus(), 50);
 }
 
 function bkFilterLuckyList(q) {
   const items = document.querySelectorAll('#lucky-slot-list label');
-  const qLow = q.toLowerCase();
+  const qLow = q.trim().toLowerCase();
   items.forEach(item => {
-    item.style.display = (!q || item.dataset.team.includes(qLow)) ? '' : 'none';
+    item.style.display = (!qLow || item.dataset.q.includes(qLow)) ? '' : 'none';
   });
 }
 
@@ -9475,7 +9485,7 @@ function bkApplyLuckySlot(code, side) {
   _bkSaveOverrides();
   document.getElementById('bk-lucky-slot-mo')?.remove();
   bkRender();
-  toast(`⏳ Lưu Lucky: ${team} → ${code}...`,'in');
+  toast(`⏳ Đang lưu Lucky: ${team} → ${code}...`,'in');
   _bkSyncOverrideToSchedule(code).then(()=>{
     toast(`🍀 ${team} vào slot Lucky ${code} — thi đấu xong mới điền tiếp`,'ok');
   });
