@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 | v47 FIX: Phân công TT lỗi "Không xác định giải đấu"; Bracket full height; Toolbar nút đồng màu xanh dương, Thủ công/Tự động sáng xanh lá khi active | v49 FIX 2026-05-28: (1) Players persist localStorage — không mất khi navigate; (2) GAS dedup tính noidung | v54 2026-05-28: (3) Mỗi nội dung có danh sách VĐV độc lập (localStorage namespace by GS URL); (4) Nút Lưu danh sách / Sửa danh sách; (5) Chế độ read-only khi đã lưu | v51: Popup bốc thăm 5s + quản lý bảng | v52: Quy tắc cố định 4 đội/bảng | v53: Lưu DanhSachVDV+DanhSachBang lên GSheets | v54: skeleton loading cards, nút xóa nội dung, pre-cache, TTL 5 phút -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v60_2.25.2 — Referee Pickleball / DA NANG ®</title>
+<title>Admin V60_2.123 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -8389,25 +8389,21 @@ function _bkBuildTree(seeds, bangs, koMatches, bangDone) {
       const ov = _bkOverrides[code] || {};
       if (bye.byeA) {
         if (_bkByeRule === 'lucky' && !ov.byeAOverridden) {
-          // Lucky mode + chưa chọn đội → chưa điền, chờ chọn đội Lucky
           return '';
-        } else if (ov.byeModeA === 'lucky' && ov.byeAOverridden) {
-          // Lucky mode + đã chọn đội → cần thi đấu thật, không auto-advance
+        } else if ((_bkByeRule === 'lucky' || ov.byeModeA === 'lucky') && ov.byeAOverridden) {
+          // Lucky + đã chọn đội → cần thi đấu, không auto-advance
           return '';
         } else if (!ov.byeAOverridden) {
-          // BYE mode (mặc định): auto-advance đội B
           return _resolvedTeam(code, 'B') || '';
         }
       }
       if (bye.byeB) {
         if (_bkByeRule === 'lucky' && !ov.byeBOverridden) {
-          // Lucky mode + chưa chọn đội → chờ
           return '';
-        } else if (ov.byeModeB === 'lucky' && ov.byeBOverridden) {
-          // Lucky mode + đã chọn đội → cần thi đấu thật
+        } else if ((_bkByeRule === 'lucky' || ov.byeModeB === 'lucky') && ov.byeBOverridden) {
+          // Lucky + đã chọn đội → cần thi đấu, không auto-advance
           return '';
         } else if (!ov.byeBOverridden) {
-          // BYE mode: auto-advance đội A
           return _resolvedTeam(code, 'A') || '';
         }
       }
@@ -8500,7 +8496,11 @@ function _bkBuildTree(seeds, bangs, koMatches, bangDone) {
         // Ghi nhận BYE info để getWinner dùng cho vòng sau
         if (byeT || byeB) {
           _byeMap[code] = { byeA: byeT, byeB: byeB };
-          _bkByeMapGlobal[code] = { byeA: byeT, byeB: byeB }; // expose ra ngoài scope
+          _bkByeMapGlobal[code] = { byeA: byeT, byeB: byeB };
+          // Lưu isBye vào overrides để persist qua reload/refresh
+          const ovBye = _bkOverrides[code] || {};
+          if (byeT && !ovBye._hasByeA) { ovBye._hasByeA = true; _bkOverrides[code] = ovBye; }
+          if (byeB && !ovBye._hasByeB) { ovBye._hasByeB = true; _bkOverrides[code] = ovBye; }
         }
       } else {
         // Later rounds
@@ -8607,8 +8607,11 @@ function _bkResolveAdvancers(tree, koMatches) {
       if (_bkByeRule === 'lucky' && (treeM.isByeA || treeM.isByeB)) return '';
     }
 
-    // Rule Lucky: nếu trận có BYE gốc (_byeMap) → phải thi đấu xong mới advance
-    if (_bkByeRule === 'lucky' && _bkByeMapGlobal[code]) {
+    // Rule Lucky: nếu trận có BYE gốc → phải thi đấu xong mới advance
+    // Check cả _bkByeMapGlobal (trong session) lẫn _bkOverrides._hasBye (persist qua reload)
+    const _ovCheck = _bkOverrides[code] || {};
+    const _hasBye = _bkByeMapGlobal[code] || _ovCheck._hasByeA || _ovCheck._hasByeB;
+    if (_bkByeRule === 'lucky' && _hasBye) {
       if (!sheetM || !isMatchDone(sheetM)) return ''; // chưa thi đấu → không advance
     }
 
