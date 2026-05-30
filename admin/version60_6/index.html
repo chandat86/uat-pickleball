@@ -8579,85 +8579,73 @@ function _bkSaveOverrides() {
   try { localStorage.setItem(_bkKey(), JSON.stringify(_bkOverrides)); } catch(e){}
 }
 
-// ── Re-resolve advancers sau khi overrides được apply ───────────
-// Vấn đề: _bkBuildTree gọi getWinner(code) từ Sheet trước khi override được apply.
-// Sau override, tên đội trong round trước có thể thay đổi → round sau cần cập nhật.
-// Hàm này chạy 1 pass qua tất cả round (từ đầu đến cuối) để re-fill teamA/teamB
-// cho các match "Thắng TKx" dựa trên tên đội đã được override + kết quả Sheet.
+// ── Re-resolve advancers: điền winner vào vòng sau ─────────────
+// Logic Lucky: trận có BYE gốc → phải có điểm mới advance, bất kể rule hay override
 function _bkResolveAdvancers(tree, koMatches) {
-  // Build map: matchCode → match object (đã override) từ tree
-  const treeMatchMap = {};
-  tree.rounds.forEach(round => {
-    round.matches.forEach(m => { treeMatchMap[m.code] = m; });
-  });
+  // Map matchCode → tree match (đã apply override)
+  const treeMap = {};
+  tree.rounds.forEach(r => r.matches.forEach(m => { treeMap[m.code] = m; }));
 
-  // Build map: matchCode → Sheet row (để lấy score)
-  const koByCode = {};
-  koMatches.forEach(m => { koByCode[String(m[3]||'')] = m; });
+  // Map matchCode → Sheet row
+  const sheetMap = {};
+  koMatches.forEach(m => { sheetMap[String(m[3]||'')] = m; });
 
-  // Hàm lấy winner từ: Sheet score + tên đội đã override
-  const resolveWinner = (code) => {
-    const treeM = treeMatchMap[code];
-    const sheetM = koByCode[code];
+  // Kiểm tra trận có BYE gốc không (qua mọi nguồn)
+  const hasByeOrigin = (code) => {
+    const ov = _bkOverrides[code] || {};
+    return !!(
+      _bkByeMapGlobal[code]     // build lần này
+      || ov._hasByeA            // persist localStorage
+      || ov._hasByeB
+    );
+  };
 
-    // BYE thực (chưa bị override): chỉ auto-advance khi rule=bye
+  // Lấy winner của 1 trận để điền vào vòng sau
+  const getAdvancer = (code) => {
+    const treeM  = treeMap[code];
+    const sheetM = sheetMap[code];
+
+    // Rule LUCKY + trận có BYE gốc → BẮT BUỘC có điểm mới advance
+    if (_bkByeRule === 'lucky' && hasByeOrigin(code)) {
+      if (!sheetM || !isMatchDone(sheetM)) return ''; // chưa xong → chặn
+      // Có điểm → lấy winner từ sheet
+      const fs = getFinalScore(sheetM);
+      if (!fs) return '';
+      const ov = _bkOverrides[code] || {};
+      const tA = ov.teamA || String(sheetM[4]||'');
+      const tB = ov.teamB || String(sheetM[7]||'');
+      return fs.scoreA > fs.scoreB ? tA : tB;
+    }
+
+    // Rule BYE + trận có BYE gốc (isBye còn nguyên, chưa override)
     if (treeM) {
-      if (treeM.isByeA && !treeM.isByeB && _bkByeRule !== 'lucky') return treeM.teamB || '';
-      if (treeM.isByeB && !treeM.isByeA && _bkByeRule !== 'lucky') return treeM.teamA || '';
-      if (_bkByeRule === 'lucky' && (treeM.isByeA || treeM.isByeB)) return '';
+      if (treeM.isByeA && !treeM.isByeB) return treeM.teamB || '';
+      if (treeM.isByeB && !treeM.isByeA) return treeM.teamA || '';
     }
 
-    // Rule Lucky: nếu trận có BYE gốc → phải thi đấu xong mới advance
-    // Check cả _bkByeMapGlobal (trong session) lẫn _bkOverrides._hasBye (persist qua reload)
-    const _ovCheck = _bkOverrides[code] || {};
-    const _hasBye = _bkByeMapGlobal[code] || _ovCheck._hasByeA || _ovCheck._hasByeB;
-    if (_bkByeRule === 'lucky' && _hasBye) {
-      if (!sheetM || !isMatchDone(sheetM)) return ''; // chưa thi đấu → không advance
-    }
-
-    // Có điểm số trong Sheet → lấy winner theo điểm, dùng tên đã override
+    // Trận bình thường: lấy winner từ sheet
     if (sheetM && isMatchDone(sheetM)) {
       const fs = getFinalScore(sheetM);
-      if (fs) {
-        const tA = (treeM?.teamA) || String(sheetM[4]||'');
-        const tB = (treeM?.teamB) || String(sheetM[7]||'');
-        if (tA || tB) return fs.scoreA > fs.scoreB ? tA : tB;
-      }
+      if (!fs) return '';
+      const ov = _bkOverrides[code] || {};
+      const tA = ov.teamA || (treeM?.teamA) || String(sheetM[4]||'');
+      const tB = ov.teamB || (treeM?.teamB) || String(sheetM[7]||'');
+      return fs.scoreA > fs.scoreB ? tA : tB;
     }
     return '';
   };
 
-  // Helper: kiểm tra trận srcCode có phải Lucky chưa xong không
-  const isLuckyNotDone = (srcCode) => {
-    if (_bkByeRule !== 'lucky') return false;
-    const ov = _bkOverrides[srcCode] || {};
-    // Có BYE gốc: _bkByeMapGlobal (session) hoặc _hasBye (persist) hoặc byeOverridden/byeMode
-    const hasBye = !!(_bkByeMapGlobal[srcCode]
-                   || ov._hasByeA || ov._hasByeB
-                   || ov.byeAOverridden || ov.byeBOverridden
-                   || ov.byeModeA === 'lucky' || ov.byeModeB === 'lucky');
-    // Khi rule=lucky + BYE gốc → luôn chặn nếu sheet chưa có kết quả hoàn thành
-    if (!hasBye) return false;
-    const sheetRow = koByCode[srcCode];
-    if (!sheetRow || !isMatchDone(sheetRow)) return true; // chặn
-    return false; // có kết quả → cho advance
-  };
-
-  // Pass từ round 1 trở đi (round 0 là TK, đã build đúng)
+  // Apply từ round 1 trở đi
   tree.rounds.forEach((round, ri) => {
-    if (ri === 0) return; // round đầu đã build từ seeds
+    if (ri === 0) return;
     round.matches.forEach(m => {
-      if (m.seedA && m.seedA.startsWith('Thắng ')) {
-        const srcCode = m.seedA.replace('Thắng ', '').trim();
-        if (isLuckyNotDone(srcCode)) { m.teamA = ''; return; }
-        const winner = resolveWinner(srcCode);
-        if (winner) m.teamA = winner;
+      if (m.seedA?.startsWith('Thắng ')) {
+        const w = getAdvancer(m.seedA.replace('Thắng ','').trim());
+        m.teamA = w || '';
       }
-      if (m.seedB && m.seedB.startsWith('Thắng ')) {
-        const srcCode = m.seedB.replace('Thắng ', '').trim();
-        if (isLuckyNotDone(srcCode)) { m.teamB = ''; return; }
-        const winner = resolveWinner(srcCode);
-        if (winner) m.teamB = winner;
+      if (m.seedB?.startsWith('Thắng ')) {
+        const w = getAdvancer(m.seedB.replace('Thắng ','').trim());
+        m.teamB = w || '';
       }
     });
   });
