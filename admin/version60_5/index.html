@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 | v47 FIX: Phân công TT lỗi "Không xác định giải đấu"; Bracket full height; Toolbar nút đồng màu xanh dương, Thủ công/Tự động sáng xanh lá khi active | v49 FIX 2026-05-28: (1) Players persist localStorage — không mất khi navigate; (2) GAS dedup tính noidung | v54 2026-05-28: (3) Mỗi nội dung có danh sách VĐV độc lập (localStorage namespace by GS URL); (4) Nút Lưu danh sách / Sửa danh sách; (5) Chế độ read-only khi đã lưu | v51: Popup bốc thăm 5s + quản lý bảng | v52: Quy tắc cố định 4 đội/bảng | v53: Lưu DanhSachVDV+DanhSachBang lên GSheets | v54: skeleton loading cards, nút xóa nội dung, pre-cache, TTL 5 phút -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v60_2.9 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v60_2.25.2 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -2977,7 +2977,10 @@ function startLivePolling() {
           renderBangList(_curGiaiId||'', _curNd);
         }
       }
-      if (_curPage === 'bracket' && _bkGiai && _bkNd) bkRender();
+      if (_curPage === 'bracket') {
+      _bkRestoreState();
+      if (_bkGiai && _bkNd) bkRender();
+    }
     } catch(e) {}
   }, 8000);
 }
@@ -4710,9 +4713,11 @@ function switchNdTab(tab, _skipHash) {
     _savePLayersCtx(); // lưu players context khi rời tab danh sách
   }
   if (tab === 'bracket') {
-    _bkGiai = _curGiaiId || '';
-    _bkNd   = _curNd     || '';
-    _bkGiaiName = _resolveGiaiName(_bkGiai) || _bkGiai;
+    _bkRestoreState(); // khôi phục sau reload nếu _curGiaiId chưa set
+    _bkGiai = _curGiaiId || _bkGiai || '';
+    _bkNd   = _curNd     || _bkNd   || '';
+    _bkGiaiName = _resolveGiaiName(_bkGiai) || _bkGiaiName || _bkGiai;
+    _bkOverrides = _bkLoadOverrides();
     _ndBkRender();
   }
   if (tab === 'players') {
@@ -5696,8 +5701,9 @@ async function confirmGenerateSchedule() {
 function _ndBkRender() {
   _bkGiai = _curGiaiId || _bkGiai;
   _bkNd   = _curNd     || _bkNd;
-  _bkGiaiName = _resolveGiaiName(_bkGiai) || _bkGiai; // set trước để _bkKey() nhất quán
-  _bkOverrides = _bkLoadOverrides(); // reload overrides với key đúng
+  _bkGiaiName = _resolveGiaiName(_bkGiai) || _bkGiai;
+  _bkOverrides = _bkLoadOverrides();
+  _bkSaveState(); // lưu state để restore sau reload
   const ndWrap  = document.getElementById('nd-bk-wrap');
   const realWrap = document.getElementById('bk-wrap');
   if (!ndWrap) return;
@@ -7899,12 +7905,27 @@ function onBkNdChange() {
   bkRender();
 }
 
+function _bkSaveState() {
+  try {
+    sessionStorage.setItem('pb_bk_state', JSON.stringify({ g: _bkGiai, n: _bkNd, gn: _bkGiaiName }));
+  } catch(e) {}
+}
+function _bkRestoreState() {
+  try {
+    const s = JSON.parse(sessionStorage.getItem('pb_bk_state') || '{}');
+    if (s.g) _bkGiai = s.g;
+    if (s.n) _bkNd = s.n;
+    if (s.gn) _bkGiaiName = s.gn;
+  } catch(e) {}
+}
+
 function bkSetByeRule(rule) {
   _bkByeRule = rule;
   localStorage.setItem('pb_bye_rule', rule);
   // Sync dropdown
   const sel = document.getElementById('sel-bye-rule');
   if (sel && sel.value !== rule) sel.value = rule;
+  _bkCurrentTree = null; // xóa cache để force rebuild theo rule mới
   const tree = _bkCurrentTree;
   if (rule === 'bye') {
     // Xóa byeMode lucky → auto-advance
@@ -9557,6 +9578,7 @@ function bkApplyLuckySlot(code, side) {
     _bkOverrides[code] = { ...ov, teamB: team, seedCodeB:'', byeBOverridden:true, byeModeB:'lucky' };
   }
   _bkSaveOverrides();
+  _bkCurrentTree = null; // xóa cache để force rebuild hoàn toàn
   document.getElementById('bk-lucky-slot-mo')?.remove();
   _bkForceRender(); // cập nhật ngay cả ndBkRender lẫn bkRender
   toast(`⏳ Đang lưu Lucky: ${team} → ${code}...`,'in');
@@ -10131,6 +10153,7 @@ function _bkUpdateSeedPanel(tree, seeds, bangs, bangDone) {
   const table = document.getElementById('bk-seed-table');
   if (!panel || !tree || !tree._meta) { if(panel) panel.style.display='none'; return; }
 
+  // _bkCurrentTree chỉ set sau khi tree đã resolve đầy đủ
   _bkCurrentTree = tree;
   panel.style.display = '';
 
