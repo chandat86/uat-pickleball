@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 | v47 FIX: Phân công TT lỗi "Không xác định giải đấu"; Bracket full height; Toolbar nút đồng màu xanh dương, Thủ công/Tự động sáng xanh lá khi active | v49 FIX 2026-05-28: (1) Players persist localStorage — không mất khi navigate; (2) GAS dedup tính noidung | v54 2026-05-28: (3) Mỗi nội dung có danh sách VĐV độc lập (localStorage namespace by GS URL); (4) Nút Lưu danh sách / Sửa danh sách; (5) Chế độ read-only khi đã lưu | v51: Popup bốc thăm 5s + quản lý bảng | v52: Quy tắc cố định 4 đội/bảng | v53: Lưu DanhSachVDV+DanhSachBang lên GSheets | v54: skeleton loading cards, nút xóa nội dung, pre-cache, TTL 5 phút -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v60_282 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v60_2.84 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -12072,8 +12072,6 @@ function openUserMoFromTourn() {
 
   document.getElementById('atr-giai-label').textContent = _assignTournGiaiName;
   document.getElementById('atr-phone').value = '';
-  document.getElementById('atr-result').style.display = 'none';
-  document.getElementById('atr-confirm-btn').style.display = 'none';
   mo.style.display = 'flex';
 
   // Fetch fresh 1 lần khi mở modal, sau đó render từ _U (không fetch lại khi click +/Bỏ)
@@ -12087,11 +12085,13 @@ function openUserMoFromTourn() {
 }
 
 async function atrEnsureUsers() {
-  // Luôn fetch fresh để list TT trong modal phân công luôn đúng
   try {
-    delete _cache['users'];
     const d = await gGet({action:'getUsers',adminCode:CODE},8000);
-    if(d?.ok) _U=d.rows?.slice(1)||[];
+    if (d?.ok && Array.isArray(d.rows)) {
+      _U = d.rows.length > 0 && Array.isArray(d.rows[0]) && typeof d.rows[0][7] === 'undefined'
+        ? d.rows        // không có header
+        : d.rows.slice(1); // bỏ header row
+    }
   } catch(e){}
 }
 
@@ -12196,54 +12196,6 @@ async function atrUnassign(code, phone, name) {
   }
 }
 
-async function atrSearch() {
-  const rawQ = (document.getElementById('atr-phone').value||'').trim();
-  const phone = rawQ.replace(/\D/g,'');
-  const res   = document.getElementById('atr-result');
-  const btn   = document.getElementById('atr-confirm-btn');
-  _assignRefFound = null;
-  btn.style.display = 'none';
-  if (!rawQ) { res.style.display=''; res.innerHTML='<div style="color:var(--rd);font-size:12px">⚠️ Nhập tên hoặc SĐT</div>'; return; }
-  res.style.display=''; res.innerHTML='<span class="spin"></span>';
-  await atrEnsureUsers();
-  const viKeyS = s => String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/gi,'d').toLowerCase();
-  const found = (_U||[]).find(u => {
-    const uPhone = String(u[10]||'').replace(/\D/g,'');
-    const uName  = viKeyS(String(u[1]||''));
-    if (phone && uPhone && uPhone === phone) return true;
-    if (uName.includes(viKeyS(rawQ))) return true;
-    return false;
-  });
-  if (!found) { res.innerHTML=`<div style="color:var(--rd);font-size:13px">❌ Không tìm thấy trọng tài: ${esc(rawQ)}</div>`; return; }
-  _assignRefFound = {code:String(found[0]||''),name:String(found[1]||''),phone:String(found[10]||phone),giai:String(found[8]||'')};
-  const inGiai = _assignRefFound.giai.toUpperCase().includes(_assignTournGiaiId.toUpperCase())||_assignRefFound.giai.toUpperCase().includes(_assignTournGiaiName.toUpperCase());
-  res.innerHTML=`<div style="display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;padding:10px">
-    <div style="width:36px;height:36px;border-radius:50%;background:var(--ac);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex-shrink:0">${esc(_assignRefFound.name[0]||'?')}</div>
-    <div style="flex:1"><div style="font-weight:700;font-size:13px;color:var(--tx)">${esc(_assignRefFound.name)}</div>
-    <div style="font-size:11px;color:var(--tx3)">📞 ${esc(_assignRefFound.phone)}</div>
-    ${inGiai?'<div style="font-size:11px;color:var(--or)">⚠️ Đã phân công giải này</div>':''}</div>
-    <span style="color:#16a34a;font-size:11px;font-weight:700">✅ Tìm thấy</span></div>`;
-  btn.style.display=''; btn.textContent=inGiai?'🔄 Cập nhật':'✅ Phân công';
-}
-
-async function atrConfirm() {
-  if (!_assignRefFound) return;
-  const btn = document.getElementById('atr-confirm-btn');
-  btn.disabled=true; btn.textContent='⏳ Đang gán...';
-  try {
-    const d = await gPost({action:'assignRef',adminCode:CODE,refCode:_assignRefFound.code,refPhone:_assignRefFound.phone,giai:_assignTournGiaiName,courts:'',rounds:'',noidung:''});
-    if (d?.ok) {
-      toast(`✅ Đã phân công ${_assignRefFound.name} → ${_assignTournGiaiName}`,'ok');
-      const idx=(_U||[]).findIndex(u=>String(u[0]||'').toUpperCase()===_assignRefFound.code.toUpperCase());
-      if(idx>=0) _U[idx][8]=_assignTournGiaiName;
-      document.getElementById('atr-phone').value='';
-      document.getElementById('atr-result').style.display='none';
-      btn.style.display='none'; _assignRefFound=null;
-      atrRenderLists();
-    } else toast(`❌ ${d?.reason||'Lỗi'}`,'er');
-  } catch(e){toast('❌ Lỗi kết nối','er');}
-  btn.disabled=false;
-}
 
 function openUserMo(pre=null) {
   _editU=pre;
