@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 | v47 FIX: Phân công TT lỗi "Không xác định giải đấu"; Bracket full height; Toolbar nút đồng màu xanh dương, Thủ công/Tự động sáng xanh lá khi active | v49 FIX 2026-05-28: (1) Players persist localStorage — không mất khi navigate; (2) GAS dedup tính noidung | v54 2026-05-28: (3) Mỗi nội dung có danh sách VĐV độc lập (localStorage namespace by GS URL); (4) Nút Lưu danh sách / Sửa danh sách; (5) Chế độ read-only khi đã lưu | v51: Popup bốc thăm 5s + quản lý bảng | v52: Quy tắc cố định 4 đội/bảng | v53: Lưu DanhSachVDV+DanhSachBang lên GSheets | v54: skeleton loading cards, nút xóa nội dung, pre-cache, TTL 5 phút -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v60_2.522 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v60_2.6 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -8352,20 +8352,27 @@ function _bkBuildTree(seeds, bangs, koMatches, bangDone) {
     if (bye) {
       const ov = _bkOverrides[code] || {};
       if (bye.byeA) {
-        if (ov.byeModeA === 'lucky') {
-          // Lucky mode: slot BYE có đội thật → đợi kết quả trận như bình thường
-          // (không auto-advance, fall through xuống phần check kết quả sheet bên dưới)
-        } else {
+        if (_bkByeRule === 'lucky' && !ov.byeAOverridden) {
+          // Lucky mode + chưa chọn đội → chưa điền, chờ chọn đội Lucky
+          return '';
+        } else if (ov.byeModeA === 'lucky' && ov.byeAOverridden) {
+          // Lucky mode + đã chọn đội → cần thi đấu thật, không auto-advance
+          return '';
+        } else if (!ov.byeAOverridden) {
           // BYE mode (mặc định): auto-advance đội B
-          if (!ov.byeAOverridden) return _resolvedTeam(code, 'B') || '';
+          return _resolvedTeam(code, 'B') || '';
         }
       }
       if (bye.byeB) {
-        if (ov.byeModeB === 'lucky') {
-          // Lucky mode: chờ kết quả
-        } else {
+        if (_bkByeRule === 'lucky' && !ov.byeBOverridden) {
+          // Lucky mode + chưa chọn đội → chờ
+          return '';
+        } else if (ov.byeModeB === 'lucky' && ov.byeBOverridden) {
+          // Lucky mode + đã chọn đội → cần thi đấu thật
+          return '';
+        } else if (!ov.byeBOverridden) {
           // BYE mode: auto-advance đội A
-          if (!ov.byeBOverridden) return _resolvedTeam(code, 'A') || '';
+          return _resolvedTeam(code, 'A') || '';
         }
       }
     }
