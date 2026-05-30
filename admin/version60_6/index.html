@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 | v47 FIX: Phân công TT lỗi "Không xác định giải đấu"; Bracket full height; Toolbar nút đồng màu xanh dương, Thủ công/Tự động sáng xanh lá khi active | v49 FIX 2026-05-28: (1) Players persist localStorage — không mất khi navigate; (2) GAS dedup tính noidung | v54 2026-05-28: (3) Mỗi nội dung có danh sách VĐV độc lập (localStorage namespace by GS URL); (4) Nút Lưu danh sách / Sửa danh sách; (5) Chế độ read-only khi đã lưu | v51: Popup bốc thăm 5s + quản lý bảng | v52: Quy tắc cố định 4 đội/bảng | v53: Lưu DanhSachVDV+DanhSachBang lên GSheets | v54: skeleton loading cards, nút xóa nội dung, pre-cache, TTL 5 phút -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v60_6.1 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v60_6.3 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -8731,9 +8731,15 @@ function bkRender() {
     const rB = m.isByeB ? (luckyPickedB?'':isLuckyB?'r-lucky':'r-bye') : (!tB?'r-tbd':winB?'r-win':'');
     const nA = m.isByeA ? (luckyPickedA?(tA||'—'):isLuckyA?'🍀 Lucky':'BYE') : (tA||'—');
     const nB = m.isByeB ? (luckyPickedB?(tB||'—'):isLuckyB?'🍀 Lucky':'BYE') : (tB||'—');
-    // Pill: lucky chưa chọn → 🍀, lucky đã chọn → label đội (vị trí), bye → BYE
-    const plA = luckyPickedA ? (pillLabel(m.seedA||'')||'🍀') : pillLabel(m.seedA||'');
-    const plB = luckyPickedB ? (pillLabel(m.seedB||'')||'🍀') : pillLabel(m.seedB||'');
+    // Pill: lucky chưa chọn → 🍀, lucky đã chọn → vị trí thực (3B, 4C...), bye → BYE
+    const _luckyPos = (team) => {
+      if (!team) return '🍀';
+      const { seeds: _ls, bangs: _lb } = _bkCalcSeeds(_bkGiai, _bkNd);
+      for (const b of _lb) { const f=(_ls[b]||[]).find(s=>s.team===team); if(f) return f.rank+b; }
+      return '🍀';
+    };
+    const plA = luckyPickedA ? _luckyPos(tA) : pillLabel(m.seedA||'');
+    const plB = luckyPickedB ? _luckyPos(tB) : pillLabel(m.seedB||'');
     const pcA=pillCls(m.seedA||''), pcB=pillCls(m.seedB||'');
     const scA=fs?`<div class="bk-sbox${winA?' s-win':''}">${fs.scoreA}</div>`:'<div class="bk-sbox s-empty">—</div>';
     const scB=fs?`<div class="bk-sbox${winB?' s-win':''}">${fs.scoreB}</div>`:'<div class="bk-sbox s-empty">—</div>';
