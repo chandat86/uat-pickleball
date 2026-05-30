@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 | v47 FIX: Phân công TT lỗi "Không xác định giải đấu"; Bracket full height; Toolbar nút đồng màu xanh dương, Thủ công/Tự động sáng xanh lá khi active | v49 FIX 2026-05-28: (1) Players persist localStorage — không mất khi navigate; (2) GAS dedup tính noidung | v54 2026-05-28: (3) Mỗi nội dung có danh sách VĐV độc lập (localStorage namespace by GS URL); (4) Nút Lưu danh sách / Sửa danh sách; (5) Chế độ read-only khi đã lưu | v51: Popup bốc thăm 5s + quản lý bảng | v52: Quy tắc cố định 4 đội/bảng | v53: Lưu DanhSachVDV+DanhSachBang lên GSheets | v54: skeleton loading cards, nút xóa nội dung, pre-cache, TTL 5 phút -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v60_5.3 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v60_5.5.3 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -393,15 +393,14 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 .mbox{
   background:var(--bg2);border:1px solid var(--bdr2);
   border-radius:var(--r3);
-  width:500px;max-width:100%;max-height:90vh;
+  width:500px;max-width:100%;max-height:92vh;
   display:flex;flex-direction:column;
   overflow:hidden;box-shadow:var(--shadow-lg);
   animation:scaleIn .2s ease;
 }
-.mbox>.mh{padding:20px 24px 0;flex-shrink:0}
-.mbox>.mf{padding:16px 24px;flex-shrink:0;border-top:1px solid var(--bdr);background:var(--bg2)}
-.mbox>*:not(.mh):not(.mf){padding:0 24px;overflow-y:auto;flex:1;min-height:0}
-.mbox>.fgrid,.mbox>form,.mbox>div:not(.mh):not(.mf){padding:12px 24px;overflow-y:auto;flex:1;min-height:0}
+.mbox>.mh{padding:18px 22px 14px;flex-shrink:0;border-bottom:1px solid var(--bdr)}
+.mbox>.mb{flex:1;overflow-y:auto;padding:16px 22px;min-height:0}
+.mbox>.mf{padding:14px 22px;flex-shrink:0;border-top:1px solid var(--bdr);background:var(--bg2);display:flex;gap:8px;justify-content:flex-end}
 .mbox.w{width:660px}.mbox.ww{width:800px}.mbox.xl{width:960px}
 .mh{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
 .mtt{font-size:16px;font-weight:800;letter-spacing:-.2px}
@@ -1718,6 +1717,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 <!-- Tournament Modal -->
 <div class="mo" id="mo-tourn"><div class="mbox ww">
   <div class="mh"><div class="mtt" id="tourn-tt">Tạo giải đấu</div><button class="mc" onclick="closeMo('mo-tourn');_editT=null;document.getElementById('t-save').disabled=false">✕</button></div>
+  <div class="mb">
 
   <!-- Mã giải tự động - ẩn UI, giữ hidden input -->
   <input type="hidden" id="t-id">
@@ -1786,6 +1786,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
       </select></div>
     <div class="fg"><label>Ghi chú</label><input type="text" id="t-note" placeholder="Nhà tài trợ, ghi chú thêm..."></div>
   </div>
+  </div><!-- /mb -->
   <div class="mf">
     <button class="btn bh" onclick="closeMo('mo-tourn');_editT=null;document.getElementById('t-save').disabled=false">Hủy</button>
     <button class="btn bp" id="t-save" onclick="saveTournament()">💾 Lưu giải đấu</button>
@@ -1795,6 +1796,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 <!-- User Modal -->
 <div class="mo" id="mo-user"><div class="mbox w">
   <div class="mh"><div class="mtt" id="user-tt">Thêm Trọng tài</div><button class="mc" onclick="closeMo('mo-user')">✕</button></div>
+  <div class="mb">
   <div class="fgrid">
     <div class="fg"><label>📞 Điện thoại <span style="color:var(--rd)">*</span></label>
       <input type="tel" id="u-phone" placeholder="0901234567" oninput="this.value=this.value.replace(/[^0-9+]/g,'')">
@@ -1836,6 +1838,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
     <input type="hidden" id="u-rounds" value="">
     <div class="fg full"><label>Ghi chú</label><input type="text" id="u-note" placeholder=""></div>
   </div>
+  </div><!-- /mb -->
   <div class="mf">
     <button class="btn bh" onclick="closeMo('mo-user')">Hủy</button>
     <button class="btn bp" id="u-save" onclick="saveUser()">💾 Lưu</button>
@@ -1963,7 +1966,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 <!-- Match Modal (thêm/sửa trận, có sửa tỉ số) -->
 <div class="mo" id="mo-match"><div class="mbox w">
   <div class="mh"><div class="mtt" id="match-tt">Thêm trận đấu</div><button class="mc" onclick="closeMo('mo-match')">✕</button></div>
-  <div class="fgrid t3">
+  <div class="mb"><div class="fgrid t3">
     <div class="fg"><label>Giải đấu *</label><select id="m-giai-i"><option value="">— Chọn giải —</option></select></div>
     <div class="fg"><label>Nội dung *</label><input type="text" id="m-nd-i" placeholder="Nội dung thi đấu"></div>
     <div class="fg"><label>Bảng *</label><input type="text" id="m-bang-i" placeholder="Bảng A"></div>
@@ -1975,7 +1978,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
     <div class="fg"><label>Sân</label><input type="text" id="m-court" placeholder="Sân 1"></div>
     <div class="fg"><label>Vòng đấu</label><input type="text" id="m-round" placeholder="Vòng bảng"></div>
     <div class="fg"><label>Ghi chú</label><input type="text" id="m-note-i" placeholder=""></div>
-  </div>
+  </div></div>
   <div class="mf">
     <button class="btn bh" onclick="closeMo('mo-match')">Hủy</button>
     <button class="btn bp" id="m-save" onclick="saveMatch()">💾 Lưu</button>
@@ -1985,6 +1988,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 <!-- Score Edit Modal (sửa tỉ số nhanh trực tiếp) -->
 <div class="mo" id="mo-score"><div class="mbox" style="width:360px">
   <div class="mh"><div class="mtt">✏️ Sửa tỉ số trực tiếp</div><button class="mc" onclick="closeMo('mo-score')">✕</button></div>
+  <div class="mb">
   <input type="hidden" id="sc-giai"><input type="hidden" id="sc-nd"><input type="hidden" id="sc-bang"><input type="hidden" id="sc-code">
   <div style="text-align:center;margin-bottom:14px">
     <div id="sc-teams" style="font-size:13px;font-weight:600;color:var(--tx2);margin-bottom:12px"></div>
@@ -2000,6 +2004,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
       </div>
     </div>
   </div>
+  </div><!-- /mb -->
   <div class="mf">
     <button class="btn bh" onclick="closeMo('mo-score')">Hủy</button>
     <button class="btn bp" onclick="saveScore()">💾 Lưu tỉ số</button>
@@ -2009,6 +2014,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 <!-- Import Match CSV -->
 <div class="mo" id="mo-im"><div class="mbox w">
   <div class="mh"><div class="mtt">📥 Import lịch thi đấu CSV</div><button class="mc" onclick="closeMo('mo-im')">✕</button></div>
+  <div class="mb">
   <div style="font-size:12px;color:var(--tx2);margin-bottom:9px;line-height:1.7">
     Header: <code style="background:var(--bg3);padding:2px 6px;border-radius:4px;font-size:11px">giai,noidung,bang,ma,doiA,doiB,san,vong,ghichu</code>
   </div>
@@ -2020,6 +2026,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
     <div style="font-size:11px;font-weight:700;color:var(--tx3);margin-bottom:5px">XEM TRƯỚC — <span id="mp-c">0</span> trận</div>
     <div style="max-height:150px;overflow-y:auto" id="mp-t"></div>
   </div>
+  </div><!-- /mb -->
   <div class="mf">
     <button class="btn bh" onclick="dlCSVTpl()">⬇️ File mẫu</button>
     <button class="btn bh" onclick="closeMo('mo-im')">Hủy</button>
@@ -2030,6 +2037,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 <!-- Round Robin -->
 <div class="mo" id="mo-rr"><div class="mbox w">
   <div class="mh"><div class="mtt">⚡ Tạo lịch Round-Robin</div><button class="mc" onclick="closeMo('mo-rr')">✕</button></div>
+  <div class="mb">
   <div class="fgrid">
     <div class="fg"><label>Giải đấu *</label><select id="rr-giai"><option value="">— Chọn giải —</option></select></div>
     <div class="fg"><label>Nội dung *</label><input type="text" id="rr-nd" placeholder="Nội dung thi đấu"></div>
@@ -2043,6 +2051,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
     <div style="font-size:11px;font-weight:700;color:var(--tx3);margin-bottom:5px"><span id="rr-cnt">0</span> trận</div>
     <div style="max-height:150px;overflow-y:auto;font-size:12px;background:var(--bg3);border-radius:8px;padding:8px" id="rr-list"></div>
   </div>
+  </div><!-- /mb -->
   <div class="mf">
     <button class="btn bh" onclick="genRR()">👁 Xem trước</button>
     <button class="btn bh" onclick="closeMo('mo-rr')">Hủy</button>
@@ -2053,6 +2062,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 <!-- Player Modal -->
 <div class="mo" id="mo-player"><div class="mbox w">
   <div class="mh"><div class="mtt" id="player-tt">Thêm VĐV</div><button class="mc" onclick="closeMo('mo-player')">✕</button></div>
+  <div class="mb">
   <div class="fgrid t3">
     <div class="fg"><label>Mã VĐV</label><input type="text" id="p-id" style="font-family:var(--mo)" placeholder="P001"></div>
     <div class="fg"><label>Họ tên *</label><input type="text" id="p-name" placeholder="Nguyễn Văn An"></div>
@@ -2065,6 +2075,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
     <div class="fg"><label>SĐT</label><input type="tel" id="p-phone"></div>
     <div class="fg full"><label>Ghi chú</label><input type="text" id="p-note"></div>
   </div>
+  </div><!-- /mb -->
   <div class="mf">
     <button class="btn bh" onclick="closeMo('mo-player')">Hủy</button>
     <button class="btn bp" id="p-save" onclick="savePlayer()">💾 Lưu</button>
@@ -2074,6 +2085,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 <!-- Import Player CSV -->
 <div class="mo" id="mo-ip"><div class="mbox w">
   <div class="mh"><div class="mtt">📥 Import VĐV CSV</div><button class="mc" onclick="closeMo('mo-ip')">✕</button></div>
+  <div class="mb">
   <div style="font-size:12px;color:var(--tx2);margin-bottom:9px">
     Header: <code style="background:var(--bg3);padding:2px 6px;border-radius:4px;font-size:11px">id,name,gender,dob,club,phone,giai,category,level,note</code>
   </div>
@@ -2085,6 +2097,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
     <div style="font-size:11px;font-weight:700;color:var(--tx3);margin-bottom:5px"><span id="pp-c">0</span> VĐV</div>
     <div style="max-height:150px;overflow-y:auto" id="pp-t"></div>
   </div>
+  </div><!-- /mb -->
   <div class="mf">
     <button class="btn bh" onclick="closeMo('mo-ip')">Hủy</button>
     <button class="btn bp" id="ip-btn" onclick="importPlayers()" disabled>📤 Import</button>
@@ -2097,9 +2110,11 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 <!-- Thêm nội dung thi đấu -->
 <div class="mo" id="mo-nd"><div class="mbox">
   <div class="mh"><div class="mtt">＋ Thêm nội dung thi đấu</div><button class="mc" onclick="closeMo('mo-nd')">✕</button></div>
+  <div class="mb">
   <div class="fg"><label>Tên nội dung *</label>
     <input type="text" id="nd-name" placeholder="Nội dung thi đấu" style="font-size:15px">
     <span class="hint">VD: Đôi Nam · Đôi Nữ · Đôi Hỗn Hợp</span></div>
+  </div><!-- /mb -->
   <div class="mf">
     <button class="btn bh" onclick="closeMo('mo-nd')">Hủy</button>
     <button class="btn bp" onclick="saveNoidung()">Thêm</button>
@@ -2109,6 +2124,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 <!-- Thêm bảng đấu + nhập VĐV -->
 <div class="mo" id="mo-bang"><div class="mbox w">
   <div class="mh"><div class="mtt" id="bang-mo-title">＋ Thêm bảng đấu</div><button class="mc" onclick="closeMo('mo-bang')">✕</button></div>
+  <div class="mb">
 
   <!-- Thông tin bảng -->
   <div class="fgrid" style="margin-bottom:12px">
@@ -2171,6 +2187,7 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
     <div style="max-height:200px;overflow-y:auto;background:var(--bg3);border-radius:8px;padding:10px;font-size:12px" id="bang-preview-list"></div>
   </div>
 
+  </div><!-- /mb -->
   <div class="mf">
     <button class="btn bh" onclick="previewBang()">👁 Xem trước</button>
     <button class="btn bh" onclick="closeMo('mo-bang')">Hủy</button>
