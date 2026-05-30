@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 | v47 FIX: Phân công TT lỗi "Không xác định giải đấu"; Bracket full height; Toolbar nút đồng màu xanh dương, Thủ công/Tự động sáng xanh lá khi active | v49 FIX 2026-05-28: (1) Players persist localStorage — không mất khi navigate; (2) GAS dedup tính noidung | v54 2026-05-28: (3) Mỗi nội dung có danh sách VĐV độc lập (localStorage namespace by GS URL); (4) Nút Lưu danh sách / Sửa danh sách; (5) Chế độ read-only khi đã lưu | v51: Popup bốc thăm 5s + quản lý bảng | v52: Quy tắc cố định 4 đội/bảng | v53: Lưu DanhSachVDV+DanhSachBang lên GSheets | v54: skeleton loading cards, nút xóa nội dung, pre-cache, TTL 5 phút -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin V60_2.123 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v60_2.222 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -8627,18 +8627,32 @@ function _bkResolveAdvancers(tree, koMatches) {
     return '';
   };
 
+  // Helper: kiểm tra trận srcCode có phải Lucky chưa xong không
+  const isLuckyNotDone = (srcCode) => {
+    if (_bkByeRule !== 'lucky') return false;
+    const ov = _bkOverrides[srcCode] || {};
+    // Nếu có BYE gốc (qua bất kỳ dấu hiệu nào) + chưa có điểm → chặn
+    const hasBye = _bkByeMapGlobal[srcCode] || ov._hasByeA || ov._hasByeB
+                   || ov.byeAOverridden || ov.byeBOverridden
+                   || ov.byeModeA === 'lucky' || ov.byeModeB === 'lucky';
+    if (!hasBye) return false;
+    const sheetRow = koByCode[srcCode];
+    return !sheetRow || !isMatchDone(sheetRow);
+  };
+
   // Pass từ round 1 trở đi (round 0 là TK, đã build đúng)
   tree.rounds.forEach((round, ri) => {
     if (ri === 0) return; // round đầu đã build từ seeds
     round.matches.forEach(m => {
-      // Chỉ update nếu seedA/seedB là dạng "Thắng TKx"
       if (m.seedA && m.seedA.startsWith('Thắng ')) {
         const srcCode = m.seedA.replace('Thắng ', '').trim();
+        if (isLuckyNotDone(srcCode)) { m.teamA = ''; return; }
         const winner = resolveWinner(srcCode);
         if (winner) m.teamA = winner;
       }
       if (m.seedB && m.seedB.startsWith('Thắng ')) {
         const srcCode = m.seedB.replace('Thắng ', '').trim();
+        if (isLuckyNotDone(srcCode)) { m.teamB = ''; return; }
         const winner = resolveWinner(srcCode);
         if (winner) m.teamB = winner;
       }
