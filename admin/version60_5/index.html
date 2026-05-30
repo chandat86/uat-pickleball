@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 | v47 FIX: Phân công TT lỗi "Không xác định giải đấu"; Bracket full height; Toolbar nút đồng màu xanh dương, Thủ công/Tự động sáng xanh lá khi active | v49 FIX 2026-05-28: (1) Players persist localStorage — không mất khi navigate; (2) GAS dedup tính noidung | v54 2026-05-28: (3) Mỗi nội dung có danh sách VĐV độc lập (localStorage namespace by GS URL); (4) Nút Lưu danh sách / Sửa danh sách; (5) Chế độ read-only khi đã lưu | v51: Popup bốc thăm 5s + quản lý bảng | v52: Quy tắc cố định 4 đội/bảng | v53: Lưu DanhSachVDV+DanhSachBang lên GSheets | v54: skeleton loading cards, nút xóa nội dung, pre-cache, TTL 5 phút -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v60_5.4 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v60_5.1 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -556,6 +556,8 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
 .bk-row+.bk-row{border-top:1px solid var(--bdr)}
 .bk-row.r-win{background:rgba(34,197,94,.06)}
 .bk-row.r-bye{opacity:.45;background:var(--bg3)}
+.bk-row.r-lucky{background:rgba(168,85,247,.08);border-left:2px solid var(--pu);cursor:pointer}
+.bk-row.r-lucky .bk-tname{color:var(--pu);font-weight:700;font-style:italic}
 .bk-row.r-tbd{}
 /* Seed pill */
 .bk-pill{
@@ -8627,16 +8629,19 @@ function bkRender() {
     const safeA=tA.replace(/'/g,"\'"),safeB=tB.replace(/'/g,"\'");
     const safeSA=(m.seedA||'').replace(/'/g,"\'"),safeSB=(m.seedB||'').replace(/'/g,"\'");
     const cardCls = 'bk-card'+(done?' c-done':'')+(live?' c-live':'')+(roundCls?' '+roundCls:'');
-    const rA=m.isByeA?'r-bye':(!tA?'r-tbd':winA?'r-win':'');
-    const rB=m.isByeB?'r-bye':(!tB?'r-tbd':winB?'r-win':'');
-    const nA=m.isByeA?'BYE':(tA||'—'), nB=m.isByeB?'BYE':(tB||'—');
+    const isLuckyA = m.isByeA && _bkByeRule==='lucky';
+    const isLuckyB = m.isByeB && _bkByeRule==='lucky';
+    const rA = m.isByeA ? (isLuckyA?'r-lucky':'r-bye') : (!tA?'r-tbd':winA?'r-win':'');
+    const rB = m.isByeB ? (isLuckyB?'r-lucky':'r-bye') : (!tB?'r-tbd':winB?'r-win':'');
+    const nA = m.isByeA ? (isLuckyA?'🍀 Lucky':'BYE') : (tA||'—');
+    const nB = m.isByeB ? (isLuckyB?'🍀 Lucky':'BYE') : (tB||'—');
     const plA=pillLabel(m.seedA||''), plB=pillLabel(m.seedB||'');
     const pcA=pillCls(m.seedA||''), pcB=pillCls(m.seedB||'');
     const scA=fs?`<div class="bk-sbox${winA?' s-win':''}">${fs.scoreA}</div>`:'<div class="bk-sbox s-empty">—</div>';
     const scB=fs?`<div class="bk-sbox${winB?' s-win':''}">${fs.scoreB}</div>`:'<div class="bk-sbox s-empty">—</div>';
     // Hiển thị label Lucky inline khi rule=lucky
-    const byeActA = (m.isByeA && _bkByeRule==='lucky') ? `<div style="font-size:10px;color:var(--pu);font-weight:700;padding:3px 0 0 4px;cursor:pointer" onclick="event.stopPropagation();bkPickLuckySlot('${m.code}','A')">🍀 Lucky — Click chọn đội</div>` : '';
-    const byeActB = (m.isByeB && _bkByeRule==='lucky') ? `<div style="font-size:10px;color:var(--pu);font-weight:700;padding:3px 0 0 4px;cursor:pointer" onclick="event.stopPropagation();bkPickLuckySlot('${m.code}','B')">🍀 Lucky — Click chọn đội</div>` : '';
+    const byeActA = '';
+    const byeActB = '';
     return `<div class="${cardCls}"${_bkDragMode?` draggable="true" data-code="${m.code}" ondragstart="bkDragStart(event,'${m.code}')" ondragover="event.preventDefault();bkDragOver(event)" ondragleave="bkDragLeave(event)" ondrop="bkDrop(event,'${m.code}')"`:''} onclick="bkEditMatch('${m.code}','${safeA}','${safeB}','${safeSA}','${safeSB}')">
       <div class="bk-card-hd">
         <span>${m.code}</span>
@@ -8646,22 +8651,20 @@ function bkRender() {
           <button class="bk-edit-btn" onclick="event.stopPropagation();bkEditMatch('${m.code}','${safeA}','${safeB}','${safeSA}','${safeSB}')">Sửa</button>
         </div>
       </div>
-      <div class="bk-row ${rA}">
-        <div class="bk-pill ${pcA}" title="${esc(m.seedA||'')} · Click để đổi seed"
-          onclick="event.stopPropagation();bkQuickSwapSeed('${m.code}','A')"
-          style="cursor:pointer" title="${esc(m.seedA||'')}">${plA}</div>
+      <div class="bk-row ${rA}" ${isLuckyA?`onclick="event.stopPropagation();bkPickLuckySlot('${m.code}','A')" title="Click chọn đội Lucky"`:''}>
+        <div class="bk-pill ${pcA}"
+          onclick="event.stopPropagation();${isLuckyA?`bkPickLuckySlot('${m.code}','A')`:`bkQuickSwapSeed('${m.code}','A')`}"
+          style="cursor:pointer">${isLuckyA?'🍀':plA}</div>
         <div class="bk-tname" title="${esc(nA)}">${esc(nA)}</div>
         ${scA}
       </div>
-      ${byeActA}
-      <div class="bk-row ${rB}">
+      <div class="bk-row ${rB}" ${isLuckyB?`onclick="event.stopPropagation();bkPickLuckySlot('${m.code}','B')" title="Click chọn đội Lucky"`:''}>
         <div class="bk-pill ${pcB}"
-          onclick="event.stopPropagation();bkQuickSwapSeed('${m.code}','B')"
-          style="cursor:pointer" title="${esc(m.seedB||'')}">${plB}</div>
+          onclick="event.stopPropagation();${isLuckyB?`bkPickLuckySlot('${m.code}','B')`:`bkQuickSwapSeed('${m.code}','B')`}"
+          style="cursor:pointer">${isLuckyB?'🍀':plB}</div>
         <div class="bk-tname" title="${esc(nB)}">${esc(nB)}</div>
         ${scB}
       </div>
-      ${byeActB}
     </div>`;
   };
 
@@ -9408,15 +9411,13 @@ function bkLookupSeedInput(slot) {
 function bkPickLuckySlot(code, side) {
   if (!_bkGiai || !_bkNd) { toast('Chọn giải và nội dung trước','er'); return; }
   const { seeds, bangs, bangDone } = _bkCalcSeeds(_bkGiai, _bkNd);
-  const rankLabel = ['Nhất','Nhì','Ba','Tư','Năm','Sáu','Bảy','Tám'];
   // Build danh sách: 1A, 2A, 3A... 1B, 2B... sắp xếp theo bảng → hạng
   const allSeeds = [];
   bangs.forEach(bang => {
     (seeds[bang]||[]).forEach(s => {
       if (!s.team) return;
-      const label = (s.rank) + bang; // "1A", "2B", "3C"...
-      const rankLbl = rankLabel[s.rank-1] || ('#'+s.rank);
-      allSeeds.push({ label, team: s.team, bang, rank: s.rank, rankLbl, done: !!bangDone[bang] });
+      const label = s.rank + bang; // "1A", "2B", "3C"...
+      allSeeds.push({ label, team: s.team, bang, rank: s.rank, done: !!bangDone[bang] });
     });
   });
   allSeeds.sort((a,b) => a.bang.localeCompare(b.bang) || a.rank - b.rank);
@@ -9446,11 +9447,10 @@ function bkPickLuckySlot(code, side) {
             <input type="radio" name="lucky-slot-team" value="${esc(s.team)}" style="accent-color:var(--pu)"${i===0?' checked':''}>
             <div style="min-width:0">
               <div style="display:flex;align-items:center;gap:5px">
-                <span style="font-size:13px;font-weight:800;color:var(--ac)">${s.label}</span>
+                <span style="font-size:15px;font-weight:800;color:var(--ac)">${s.label}</span>
                 ${!s.done?'<span style="font-size:9px;color:var(--or);background:rgba(245,158,11,.12);border-radius:4px;padding:1px 4px">chờ KQ</span>':''}
               </div>
-              <div style="font-size:11px;color:var(--tx);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(s.team)}">${esc(s.team)}</div>
-              <div style="font-size:10px;color:var(--tx3)">${s.rankLbl} Bảng ${s.bang}</div>
+              <div style="font-size:11px;color:var(--tx);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px" title="${esc(s.team)}">${esc(s.team)}</div>
             </div>
           </label>`).join('')}
         ${allSeeds.length===0?'<div style="color:var(--tx3);font-size:12px;padding:8px;grid-column:span 2">⚠️ Chưa có dữ liệu bảng đấu</div>':''}
