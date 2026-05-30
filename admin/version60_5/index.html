@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 | v47 FIX: Phân công TT lỗi "Không xác định giải đấu"; Bracket full height; Toolbar nút đồng màu xanh dương, Thủ công/Tự động sáng xanh lá khi active | v49 FIX 2026-05-28: (1) Players persist localStorage — không mất khi navigate; (2) GAS dedup tính noidung | v54 2026-05-28: (3) Mỗi nội dung có danh sách VĐV độc lập (localStorage namespace by GS URL); (4) Nút Lưu danh sách / Sửa danh sách; (5) Chế độ read-only khi đã lưu | v51: Popup bốc thăm 5s + quản lý bảng | v52: Quy tắc cố định 4 đội/bảng | v53: Lưu DanhSachVDV+DanhSachBang lên GSheets | v54: skeleton loading cards, nút xóa nội dung, pre-cache, TTL 5 phút -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v60_5 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v60_5.1 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -1318,7 +1318,12 @@ table.tbl{width:100%;border-collapse:collapse;font-size:13px}
             <button class="btn bsm" id="btn-bk-autofill" onclick="bkAutoFill()"
               style="background:rgba(14,165,233,.12);color:var(--ac);border:1px solid rgba(14,165,233,.3)">⚡ Điền ngay</button>
             <button class="btn bsm" style="background:rgba(14,165,233,.12);color:var(--ac);border:1px solid rgba(14,165,233,.3)" onclick="bkSave()">💾 Lưu cây</button>
-            <button class="btn bsm bk-ll-btn" onclick="bkOpenLuckyLoser()" title="Chọn lucky loser vào slot BYE">🍀 Lucky Loser</button>
+            <div style="display:flex;gap:4px;background:var(--bg3);border:1px solid var(--bdr);border-radius:8px;padding:3px" title="Chọn rule cho slot BYE trong toàn bộ cây thi đấu">
+              <button id="btn-bye-rule-bye" class="btn bsm" onclick="bkSetByeRule('bye')"
+                style="background:rgba(34,197,94,.2);color:#22c55e;border:1px solid rgba(34,197,94,.4);min-width:70px">✅ BYE</button>
+              <button id="btn-bye-rule-lucky" class="btn bsm" onclick="bkSetByeRule('lucky')"
+                style="background:transparent;color:var(--tx3);border:1px solid transparent;min-width:70px">🍀 Lucky</button>
+            </div>
             <button class="btn bsm" id="btn-bk-drag" onclick="bkToggleDrag()"
               style="background:rgba(14,165,233,.12);color:var(--ac);border:1px solid rgba(14,165,233,.3)" title="Bật/tắt kéo-thả để đổi vị trí trận đấu">⇄ Kéo-thả</button>
             <span class="bk-drag-hint">🖱 Kéo thả card để đổi vị trí</span>
@@ -2305,7 +2310,8 @@ let _dkScores={};                                  // { "bang|code": {scoreA,sco
 let _curGiaiId='', _curNd='', _curPage='dashboard'; // navigation state
 let _bkGiai='', _bkNd='', _bkGiaiName='';          // bracket state
 let _bkOverrides={};                               // bracket manual overrides
-let _bkDragMode = false;                           // drag-drop mode
+let _bkDragMode = false;
+let _bkByeRule = 'bye'; // 'bye' = auto-advance | 'lucky' = cần thi đấu                           // drag-drop mode
 let _bkDragSrc  = null;                            // code of card being dragged
 let _liveScores={};                                // key→{scoreA,scoreB,teamA,teamB,game} live scores
 let _liveTimer=null;                               // auto-refresh live every 8s
@@ -7860,6 +7866,143 @@ function onBkNdChange() {
   bkRender();
 }
 
+function bkSetByeRule(rule) {
+  _bkByeRule = rule;
+  // Update button styles
+  const btnBye   = document.getElementById('btn-bye-rule-bye');
+  const btnLucky = document.getElementById('btn-bye-rule-lucky');
+  if (rule === 'bye') {
+    if (btnBye)   { btnBye.style.background='rgba(34,197,94,.2)';   btnBye.style.color='#22c55e';      btnBye.style.borderColor='rgba(34,197,94,.4)'; }
+    if (btnLucky) { btnLucky.style.background='transparent';         btnLucky.style.color='var(--tx3)'; btnLucky.style.borderColor='transparent'; }
+    // Xóa byeMode lucky khỏi tất cả slot → về BYE auto-advance
+    const tree = _bkCurrentTree;
+    if (tree) {
+      tree.rounds.forEach(round => round.matches.forEach(m => {
+        const ov = _bkOverrides[m.code];
+        if (ov) {
+          delete ov.byeModeA;
+          delete ov.byeModeB;
+          _bkOverrides[m.code] = ov;
+        }
+      }));
+      _bkSaveOverrides();
+    }
+    toast('✅ Rule BYE: đội đối diện tự động vào vòng tiếp', 'ok');
+    bkRender();
+  } else {
+    if (btnBye)   { btnBye.style.background='transparent';           btnBye.style.color='var(--tx3)';   btnBye.style.borderColor='transparent'; }
+    if (btnLucky) { btnLucky.style.background='rgba(168,85,247,.2)'; btnLucky.style.color='var(--pu)';  btnLucky.style.borderColor='rgba(168,85,247,.4)'; }
+    // Đánh dấu tất cả BYE slot sang lucky mode
+    const tree = _bkCurrentTree;
+    if (tree) {
+      tree.rounds.forEach(round => round.matches.forEach(m => {
+        if (m.isByeA || m.isByeB) {
+          const ov = _bkOverrides[m.code] || {};
+          if (m.isByeA) ov.byeModeA = 'lucky';
+          if (m.isByeB) ov.byeModeB = 'lucky';
+          _bkOverrides[m.code] = ov;
+        }
+      }));
+      _bkSaveOverrides();
+    }
+    toast('🍀 Rule Lucky: slot BYE cần chọn đội Lucky Loser — thi đấu xong mới điền tiếp', 'in');
+    _bkApplyLuckyRuleAll();
+  }
+}
+
+function _bkApplyLuckyRuleAll() {
+  // Thu thập tất cả BYE slot trong cây hiện tại
+  const tree = _bkCurrentTree;
+  if (!tree) { toast('⚠️ Chưa có cây thi đấu', 'er'); return; }
+  const byeSlots = [];
+  tree.rounds.forEach(round => {
+    round.matches.forEach(m => {
+      const ov = _bkOverrides[m.code] || {};
+      if (m.isByeA && !ov.byeAOverridden) byeSlots.push({ code: m.code, slot: 'A' });
+      if (m.isByeB && !ov.byeBOverridden) byeSlots.push({ code: m.code, slot: 'B' });
+    });
+  });
+  if (!byeSlots.length) { toast('✅ Không có slot BYE nào trong cây', 'ok'); return; }
+  // Mở picker Lucky để user chọn đội cho từng slot
+  bkPickLuckyAll(byeSlots);
+}
+
+function bkPickLuckyAll(byeSlots) {
+  if (!_bkGiai || !_bkNd) { toast('Chọn giải và nội dung trước','er'); return; }
+  const { seeds, bangs, bangDone } = _bkCalcSeeds(_bkGiai, _bkNd);
+  const rank3List = [];
+  bangs.forEach(bang => {
+    const st = seeds[bang] || [];
+    const r3 = st.find(x => x.rank === 3);
+    if (r3 && bangDone[bang]) {
+      rank3List.push({ bang, team: r3.team, won: r3.won, pf: r3.pf, pa: r3.pa, diff: r3.pf - r3.pa });
+    }
+  });
+  rank3List.sort((a,b) => (b.won-a.won)||(b.diff-a.diff)||(b.pf-a.pf));
+
+  const el = document.createElement('div');
+  el.id = 'bk-lucky-all-mo';
+  el.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.65)';
+  el.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--bdr2);border-radius:16px;
+      padding:24px;width:min(480px,96vw);max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.4)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div>
+          <div style="font-size:15px;font-weight:700;color:var(--tx)">🍀 Chọn Lucky Loser cho ${byeSlots.length} slot BYE</div>
+          <div style="font-size:11px;color:var(--tx3);margin-top:2px">Mỗi đội thắng trận sẽ tự động điền vào vòng tiếp</div>
+        </div>
+        <button class="mc" onclick="document.getElementById('bk-lucky-all-mo').remove()">✕</button>
+      </div>
+      ${byeSlots.map((s,i) => `
+        <div style="margin-bottom:14px;padding:12px;background:var(--bg3);border:1px solid var(--bdr);border-radius:10px">
+          <div style="font-size:11px;font-weight:700;color:var(--ac);margin-bottom:8px">Slot ${i+1}: Trận ${s.code} — vị trí ${s.slot==='A'?'trên':'dưới'}</div>
+          ${rank3List.length === 0
+            ? `<div style="font-size:11px;color:var(--or)">⚠️ Chưa có đội hạng 3 (vòng bảng chưa xong)</div>`
+            : rank3List.map((r,j) => `
+              <label style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;
+                border:1.5px solid var(--bdr);margin-bottom:4px;cursor:pointer;background:var(--bg2)"
+                onmouseover="this.style.borderColor='var(--pu)'" onmouseout="this.style.borderColor='var(--bdr)'">
+                <input type="radio" name="ll-all-${i}" value="${esc(r.team)}" style="accent-color:var(--pu)"${j===0?' checked':''}>
+                <div style="flex:1">
+                  <span style="font-size:12px;font-weight:700">${esc(r.team)}</span>
+                  <span style="font-size:10px;color:var(--tx3);margin-left:6px">Bảng ${r.bang} · ${r.won}W · ${r.diff>=0?'+':''}${r.diff}</span>
+                  ${j===0?'<span style="font-size:10px;color:var(--pu);font-weight:700;margin-left:4px">★</span>':''}
+                </div>
+              </label>`).join('')
+          }
+        </div>`).join('')}
+      <div style="font-size:11px;color:var(--tx3);background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.2);border-radius:8px;padding:10px;margin-bottom:14px">
+        ℹ️ Đội được chọn sẽ vào slot BYE và <b>phải thi đấu</b>. Người thắng mới tự động điền vào vòng tiếp.
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn bh bsm" onclick="document.getElementById('bk-lucky-all-mo').remove()">Huỷ</button>
+        <button class="btn bsm bk-ll-btn" onclick="bkApplyLuckyAll(${JSON.stringify(byeSlots)})">🍀 Áp dụng tất cả</button>
+      </div>
+    </div>`;
+  document.body.appendChild(el);
+}
+
+function bkApplyLuckyAll(byeSlots) {
+  byeSlots.forEach((s, i) => {
+    const teamEl = document.querySelector(`input[name="ll-all-${i}"]:checked`);
+    if (!teamEl) return;
+    const team = teamEl.value;
+    const ov = _bkOverrides[s.code] || {};
+    if (s.slot === 'A') {
+      _bkOverrides[s.code] = { ...ov, teamA: team, seedCodeA: '', byeAOverridden: true };
+    } else {
+      _bkOverrides[s.code] = { ...ov, teamB: team, seedCodeB: '', byeBOverridden: true };
+    }
+  });
+  _bkSaveOverrides();
+  document.getElementById('bk-lucky-all-mo')?.remove();
+  bkRender();
+  // Sync tất cả sang GAS
+  Promise.all(byeSlots.map(s => _bkSyncOverrideToSchedule(s.code))).then(() => {
+    toast(`🍀 Đã áp dụng Lucky Loser cho ${byeSlots.length} slot BYE`, 'ok');
+  });
+}
+
 function bkInit() {
   const sel = document.getElementById('bk-giai');
   const prev = _bkGiai || sel.value;
@@ -8177,15 +8320,27 @@ function _bkBuildTree(seeds, bangs, koMatches, bangDone) {
         return fs.scoreA > fs.scoreB ? tA : tB;
       }
     }
-    // BYE thực → auto-advance đội thực (không cần thi đấu)
+    // BYE slot logic: bye=auto-advance, lucky=chờ kết quả thật
     const bye = _byeMap[code];
     if (bye) {
-      const ov = _bkOverrides[code];
-      // Nếu BYE đã bị override bằng đội thực → KHÔNG auto-advance (cần thi đấu)
-      const byeAStillReal = bye.byeA && !(ov && ov.byeAOverridden);
-      const byeBStillReal = bye.byeB && !(ov && ov.byeBOverridden);
-      if (byeAStillReal) return _resolvedTeam(code, 'B') || '';
-      if (byeBStillReal) return _resolvedTeam(code, 'A') || '';
+      const ov = _bkOverrides[code] || {};
+      if (bye.byeA) {
+        if (ov.byeModeA === 'lucky') {
+          // Lucky mode: slot BYE có đội thật → đợi kết quả trận như bình thường
+          // (không auto-advance, fall through xuống phần check kết quả sheet bên dưới)
+        } else {
+          // BYE mode (mặc định): auto-advance đội B
+          if (!ov.byeAOverridden) return _resolvedTeam(code, 'B') || '';
+        }
+      }
+      if (bye.byeB) {
+        if (ov.byeModeB === 'lucky') {
+          // Lucky mode: chờ kết quả
+        } else {
+          // BYE mode: auto-advance đội A
+          if (!ov.byeBOverridden) return _resolvedTeam(code, 'A') || '';
+        }
+      }
     }
     return '';
   };
@@ -8483,13 +8638,18 @@ function bkRender() {
     const scA=fs?`<div class="bk-sbox${winA?' s-win':''}">${fs.scoreA}</div>`:'<div class="bk-sbox s-empty">—</div>';
     const scB=fs?`<div class="bk-sbox${winB?' s-win':''}">${fs.scoreB}</div>`:'<div class="bk-sbox s-empty">—</div>';
     // Inline BYE action buttons
+    const _ov = _bkOverrides[m.code] || {};
     const byeActA = m.isByeA ? `<div class="bk-bye-actions">
-      <button class="bk-bye-btn bk-bye-confirm" onclick="event.stopPropagation();bkConfirmBye('${m.code}','A')" title="Giữ BYE — đội kia tự vào vòng tiếp">✅ BYE</button>
-      <button class="bk-bye-btn bk-bye-lucky" onclick="event.stopPropagation();bkPickLucky('${m.code}','A')" title="Chọn đội Lucky Loser thay BYE — cần thi đấu xong mới điền">🍀 Lucky</button>
+      <button class="bk-bye-btn bk-bye-confirm" onclick="event.stopPropagation();bkConfirmBye('${m.code}','A')"
+        style="${_ov.byeModeA==='bye'?'background:rgba(34,197,94,.3);border-color:#22c55e;font-weight:800':''}" title="Giữ BYE — đội kia tự vào vòng tiếp">✅ BYE</button>
+      <button class="bk-bye-btn bk-bye-lucky" onclick="event.stopPropagation();bkPickLucky('${m.code}','A')"
+        style="${_ov.byeModeA==='lucky'?'background:rgba(168,85,247,.35);border-color:var(--pu);font-weight:800':''}" title="Chọn đội Lucky Loser — phải thi đấu xong mới điền">🍀 Lucky</button>
     </div>` : '';
     const byeActB = m.isByeB ? `<div class="bk-bye-actions">
-      <button class="bk-bye-btn bk-bye-confirm" onclick="event.stopPropagation();bkConfirmBye('${m.code}','B')" title="Giữ BYE — đội kia tự vào vòng tiếp">✅ BYE</button>
-      <button class="bk-bye-btn bk-bye-lucky" onclick="event.stopPropagation();bkPickLucky('${m.code}','B')" title="Chọn đội Lucky Loser thay BYE — cần thi đấu xong mới điền">🍀 Lucky</button>
+      <button class="bk-bye-btn bk-bye-confirm" onclick="event.stopPropagation();bkConfirmBye('${m.code}','B')"
+        style="${_ov.byeModeB==='bye'?'background:rgba(34,197,94,.3);border-color:#22c55e;font-weight:800':''}" title="Giữ BYE — đội kia tự vào vòng tiếp">✅ BYE</button>
+      <button class="bk-bye-btn bk-bye-lucky" onclick="event.stopPropagation();bkPickLucky('${m.code}','B')"
+        style="${_ov.byeModeB==='lucky'?'background:rgba(168,85,247,.35);border-color:var(--pu);font-weight:800':''}" title="Chọn đội Lucky Loser — phải thi đấu xong mới điền">🍀 Lucky</button>
     </div>` : '';
     return `<div class="${cardCls}"${_bkDragMode?` draggable="true" data-code="${m.code}" ondragstart="bkDragStart(event,'${m.code}')" ondragover="event.preventDefault();bkDragOver(event)" ondragleave="bkDragLeave(event)" ondrop="bkDrop(event,'${m.code}')"`:''} onclick="bkEditMatch('${m.code}','${safeA}','${safeB}','${safeSA}','${safeSB}')">
       <div class="bk-card-hd">
@@ -9258,11 +9418,19 @@ function bkLookupSeedInput(slot) {
 // ════════════════════════════════════════════════════════════════
 
 
-// ── BYE inline: xác nhận giữ BYE (đội kia tự vào) ──
+// ── BYE inline: xác nhận giữ BYE (đội kia tự vào ngay) ──
 function bkConfirmBye(code, side) {
-  // BYE giữ nguyên → không làm gì, đội kia đã auto-advance
-  toast(`✅ BYE xác nhận — ${code} slot ${side}: đội đối diện tự vào vòng tiếp`, 'ok');
+  const ov = _bkOverrides[code] || {};
+  // Đánh dấu byeMode='bye' — getWinner sẽ auto-advance đội kia
+  // Xóa override lucky nếu trước đó đã chọn lucky
+  if (side === 'A') {
+    _bkOverrides[code] = { ...ov, byeModeA: 'bye', teamA: '', seedCodeA: '', byeAOverridden: false };
+  } else {
+    _bkOverrides[code] = { ...ov, byeModeB: 'bye', teamB: '', seedCodeB: '', byeBOverridden: false };
+  }
+  _bkSaveOverrides();
   bkRender();
+  toast(`✅ BYE — ${code}: đội đối diện tự động vào vòng tiếp`, 'ok');
 }
 
 // ── BYE inline: chọn Lucky Loser thay BYE ──
@@ -9326,16 +9494,17 @@ function bkApplyLuckyInline(code, side) {
   const team = teamEl.value;
   const ov = _bkOverrides[code] || {};
   if (side === 'A') {
-    _bkOverrides[code] = { ...ov, teamA: team, seedCodeA: '', byeAOverridden: true };
+    // byeMode='lucky': slot BYE giờ là đội thật → phải thi đấu → getWinner chờ kết quả
+    _bkOverrides[code] = { ...ov, byeModeA: 'lucky', teamA: team, seedCodeA: '', byeAOverridden: true };
   } else {
-    _bkOverrides[code] = { ...ov, teamB: team, seedCodeB: '', byeBOverridden: true };
+    _bkOverrides[code] = { ...ov, byeModeB: 'lucky', teamB: team, seedCodeB: '', byeBOverridden: true };
   }
   _bkSaveOverrides();
   document.getElementById('bk-ll-inline-mo')?.remove();
   bkRender();
   toast(`⏳ Đang lưu Lucky Loser: ${team} → ${code}...`, 'in');
   _bkSyncOverrideToSchedule(code).then(() => {
-    toast(`🍀 Lucky Loser: ${team} → slot ${side} trận ${code} · Cần thi đấu xong mới điền tiếp`, 'ok');
+    toast(`🍀 Lucky: ${team} vào slot ${side} trận ${code} · Thắng trận này mới điền tiếp`, 'ok');
   });
 }
 
