@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 | v47 FIX: Phân công TT lỗi "Không xác định giải đấu"; Bracket full height; Toolbar nút đồng màu xanh dương, Thủ công/Tự động sáng xanh lá khi active | v49 FIX 2026-05-28: (1) Players persist localStorage — không mất khi navigate; (2) GAS dedup tính noidung | v54 2026-05-28: (3) Mỗi nội dung có danh sách VĐV độc lập (localStorage namespace by GS URL); (4) Nút Lưu danh sách / Sửa danh sách; (5) Chế độ read-only khi đã lưu | v51: Popup bốc thăm 5s + quản lý bảng | v52: Quy tắc cố định 4 đội/bảng | v53: Lưu DanhSachVDV+DanhSachBang lên GSheets | v54: skeleton loading cards, nút xóa nội dung, pre-cache, TTL 5 phút -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v60_2.6 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v60_2.9 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -2340,6 +2340,7 @@ let _dkScores={};                                  // { "bang|code": {scoreA,sco
 let _curGiaiId='', _curNd='', _curPage='dashboard'; // navigation state
 let _bkGiai='', _bkNd='', _bkGiaiName='';          // bracket state
 let _bkOverrides={};                               // bracket manual overrides
+let _bkByeMapGlobal = {};                            // map matchCode → {byeA,byeB} cho Lucky check
 let _bkDragMode = false;
 let _bkByeRule = localStorage.getItem('pb_bye_rule') || 'bye'; // 'bye' = auto-advance | 'lucky' = cần thi đấu                           // drag-drop mode
 let _bkDragSrc  = null;                            // code of card being dragged
@@ -8335,7 +8336,7 @@ function _bkBuildTree(seeds, bangs, koMatches, bangDone) {
   };
 
   // Map: matchCode → {byeA, byeB} — sẽ được populate khi build round-0
-  const _byeMap = {};
+  const _byeMap = {}; _bkByeMapGlobal = {}; // reset khi build lại
 
   const getWinner = (code) => {
     const sheetM = koByCode[code];
@@ -8462,7 +8463,10 @@ function _bkBuildTree(seeds, bangs, koMatches, bangDone) {
           fromFin
         });
         // Ghi nhận BYE info để getWinner dùng cho vòng sau
-        if (byeT || byeB) _byeMap[code] = { byeA: byeT, byeB: byeB };
+        if (byeT || byeB) {
+          _byeMap[code] = { byeA: byeT, byeB: byeB };
+          _bkByeMapGlobal[code] = { byeA: byeT, byeB: byeB }; // expose ra ngoài scope
+        }
       } else {
         // Later rounds
         const prevPfx = prefix(fromFin + 1, nM * 2);
@@ -8560,15 +8564,18 @@ function _bkResolveAdvancers(tree, koMatches) {
     if (treeM) {
       if (treeM.isByeA && !treeM.isByeB && _bkByeRule !== 'lucky') return treeM.teamB || '';
       if (treeM.isByeB && !treeM.isByeA && _bkByeRule !== 'lucky') return treeM.teamA || '';
-      // Rule Lucky: BYE slot → chờ thi đấu xong mới advance
       if (_bkByeRule === 'lucky' && (treeM.isByeA || treeM.isByeB)) return '';
+    }
+
+    // Rule Lucky: nếu trận có BYE gốc (_byeMap) → phải thi đấu xong mới advance
+    if (_bkByeRule === 'lucky' && _bkByeMapGlobal[code]) {
+      if (!sheetM || !isMatchDone(sheetM)) return ''; // chưa thi đấu → không advance
     }
 
     // Có điểm số trong Sheet → lấy winner theo điểm, dùng tên đã override
     if (sheetM && isMatchDone(sheetM)) {
       const fs = getFinalScore(sheetM);
       if (fs) {
-        // Ưu tiên tên từ tree (đã apply override), fallback Sheet
         const tA = (treeM?.teamA) || String(sheetM[4]||'');
         const tB = (treeM?.teamB) || String(sheetM[7]||'');
         if (tA || tB) return fs.scoreA > fs.scoreB ? tA : tB;
