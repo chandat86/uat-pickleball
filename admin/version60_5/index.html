@@ -8556,10 +8556,12 @@ function _bkResolveAdvancers(tree, koMatches) {
     const treeM = treeMatchMap[code];
     const sheetM = koByCode[code];
 
-    // BYE thực (chưa bị override): winner là đội thực còn lại
+    // BYE thực (chưa bị override): chỉ auto-advance khi rule=bye
     if (treeM) {
-      if (treeM.isByeA && !treeM.isByeB) return treeM.teamB || '';
-      if (treeM.isByeB && !treeM.isByeA) return treeM.teamA || '';
+      if (treeM.isByeA && !treeM.isByeB && _bkByeRule !== 'lucky') return treeM.teamB || '';
+      if (treeM.isByeB && !treeM.isByeA && _bkByeRule !== 'lucky') return treeM.teamA || '';
+      // Rule Lucky: BYE slot → chờ thi đấu xong mới advance
+      if (_bkByeRule === 'lucky' && (treeM.isByeA || treeM.isByeB)) return '';
     }
 
     // Có điểm số trong Sheet → lấy winner theo điểm, dùng tên đã override
