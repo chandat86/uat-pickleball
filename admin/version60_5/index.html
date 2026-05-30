@@ -4,7 +4,7 @@
 <!-- Pickleball v25 | FIX: Login detailed errors, Test GAS button, Seeding cross-group verified | 2026-05-23 | Fix: s-done không nhảy loạn, _gasLastDone source-of-truth, stale localStorage invalidated | 2026-05-22 | v44 FIX: Cross-seeding cùng bảng + BYE trao đúng thành tích tốt nhất (nb=3,5,6,7) 2026-05-25 | v47 FIX: Phân công TT lỗi "Không xác định giải đấu"; Bracket full height; Toolbar nút đồng màu xanh dương, Thủ công/Tự động sáng xanh lá khi active | v49 FIX 2026-05-28: (1) Players persist localStorage — không mất khi navigate; (2) GAS dedup tính noidung | v54 2026-05-28: (3) Mỗi nội dung có danh sách VĐV độc lập (localStorage namespace by GS URL); (4) Nút Lưu danh sách / Sửa danh sách; (5) Chế độ read-only khi đã lưu | v51: Popup bốc thăm 5s + quản lý bảng | v52: Quy tắc cố định 4 đội/bảng | v53: Lưu DanhSachVDV+DanhSachBang lên GSheets | v54: skeleton loading cards, nút xóa nội dung, pre-cache, TTL 5 phút -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Admin v60_5.5.3 — Referee Pickleball / DA NANG ®</title>
+<title>Admin v60_5.6 — Referee Pickleball / DA NANG ®</title>
 <style>
 /* ═══════════════════════════════════════════════════════
    Pickleball Admin — Mobile-First Professional UI
@@ -7926,8 +7926,8 @@ function bkSetByeRule(rule) {
       }));
       _bkSaveOverrides();
     }
-    toast('🍀 Rule Lucky: click vào "Lucky — Chọn đội" để chọn đội thi đấu cho từng slot BYE', 'in');
-    bkRender();
+    bkRender(); // render ngay - slot BYE đổi sang Lucky ngay lập tức
+    toast('🍀 Slot BYE đã chuyển sang Lucky — click vào slot để chọn đội', 'in');
   }
 }
 
@@ -8651,13 +8651,18 @@ function bkRender() {
     const safeA=tA.replace(/'/g,"\'"),safeB=tB.replace(/'/g,"\'");
     const safeSA=(m.seedA||'').replace(/'/g,"\'"),safeSB=(m.seedB||'').replace(/'/g,"\'");
     const cardCls = 'bk-card'+(done?' c-done':'')+(live?' c-live':'')+(roundCls?' '+roundCls:'');
-    const isLuckyA = m.isByeA && _bkByeRule==='lucky';
-    const isLuckyB = m.isByeB && _bkByeRule==='lucky';
-    const rA = m.isByeA ? (isLuckyA?'r-lucky':'r-bye') : (!tA?'r-tbd':winA?'r-win':'');
-    const rB = m.isByeB ? (isLuckyB?'r-lucky':'r-bye') : (!tB?'r-tbd':winB?'r-win':'');
-    const nA = m.isByeA ? (isLuckyA?'🍀 Lucky':'BYE') : (tA||'—');
-    const nB = m.isByeB ? (isLuckyB?'🍀 Lucky':'BYE') : (tB||'—');
-    const plA=pillLabel(m.seedA||''), plB=pillLabel(m.seedB||'');
+    const _ov2 = _bkOverrides[m.code] || {};
+    const luckyPickedA = m.isByeA && _ov2.byeAOverridden && tA; // đã chọn đội lucky
+    const luckyPickedB = m.isByeB && _ov2.byeBOverridden && tB;
+    const isLuckyA = m.isByeA && _bkByeRule==='lucky' && !luckyPickedA;
+    const isLuckyB = m.isByeB && _bkByeRule==='lucky' && !luckyPickedB;
+    const rA = m.isByeA ? (luckyPickedA?'':isLuckyA?'r-lucky':'r-bye') : (!tA?'r-tbd':winA?'r-win':'');
+    const rB = m.isByeB ? (luckyPickedB?'':isLuckyB?'r-lucky':'r-bye') : (!tB?'r-tbd':winB?'r-win':'');
+    const nA = m.isByeA ? (luckyPickedA?(tA||'—'):isLuckyA?'🍀 Lucky':'BYE') : (tA||'—');
+    const nB = m.isByeB ? (luckyPickedB?(tB||'—'):isLuckyB?'🍀 Lucky':'BYE') : (tB||'—');
+    // Pill: lucky chưa chọn → 🍀, lucky đã chọn → label đội (vị trí), bye → BYE
+    const plA = luckyPickedA ? (pillLabel(m.seedA||'')||'🍀') : pillLabel(m.seedA||'');
+    const plB = luckyPickedB ? (pillLabel(m.seedB||'')||'🍀') : pillLabel(m.seedB||'');
     const pcA=pillCls(m.seedA||''), pcB=pillCls(m.seedB||'');
     const scA=fs?`<div class="bk-sbox${winA?' s-win':''}">${fs.scoreA}</div>`:'<div class="bk-sbox s-empty">—</div>';
     const scB=fs?`<div class="bk-sbox${winB?' s-win':''}">${fs.scoreB}</div>`:'<div class="bk-sbox s-empty">—</div>';
@@ -8673,16 +8678,16 @@ function bkRender() {
           <button class="bk-edit-btn" onclick="event.stopPropagation();bkEditMatch('${m.code}','${safeA}','${safeB}','${safeSA}','${safeSB}')">Sửa</button>
         </div>
       </div>
-      <div class="bk-row ${rA}" ${isLuckyA?`onclick="event.stopPropagation();bkPickLuckySlot('${m.code}','A')" title="Click chọn đội Lucky"`:''}>
+      <div class="bk-row ${rA}" ${(isLuckyA||luckyPickedA)?`onclick="event.stopPropagation();bkPickLuckySlot('${m.code}','A')" title="${luckyPickedA?'Click để đổi đội Lucky':'Click chọn đội Lucky'}"`:''}>
         <div class="bk-pill ${pcA}"
-          onclick="event.stopPropagation();${isLuckyA?`bkPickLuckySlot('${m.code}','A')`:`bkQuickSwapSeed('${m.code}','A')`}"
+          onclick="event.stopPropagation();${(isLuckyA||luckyPickedA)?`bkPickLuckySlot('${m.code}','A')`:`bkQuickSwapSeed('${m.code}','A')`}"
           style="cursor:pointer">${isLuckyA?'🍀':plA}</div>
         <div class="bk-tname" title="${esc(nA)}">${esc(nA)}</div>
         ${scA}
       </div>
-      <div class="bk-row ${rB}" ${isLuckyB?`onclick="event.stopPropagation();bkPickLuckySlot('${m.code}','B')" title="Click chọn đội Lucky"`:''}>
+      <div class="bk-row ${rB}" ${(isLuckyB||luckyPickedB)?`onclick="event.stopPropagation();bkPickLuckySlot('${m.code}','B')" title="${luckyPickedB?'Click để đổi đội Lucky':'Click chọn đội Lucky'}"`:''}>
         <div class="bk-pill ${pcB}"
-          onclick="event.stopPropagation();${isLuckyB?`bkPickLuckySlot('${m.code}','B')`:`bkQuickSwapSeed('${m.code}','B')`}"
+          onclick="event.stopPropagation();${(isLuckyB||luckyPickedB)?`bkPickLuckySlot('${m.code}','B')`:`bkQuickSwapSeed('${m.code}','B')`}"
           style="cursor:pointer">${isLuckyB?'🍀':plB}</div>
         <div class="bk-tname" title="${esc(nB)}">${esc(nB)}</div>
         ${scB}
