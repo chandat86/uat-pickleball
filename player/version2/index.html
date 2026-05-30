@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-<title>Pickleball v2.25— Xem Giải Đấu</title>
+<title>Pickleball v3..33— Xem Giải Đấu</title>
 <style>
 /* system font - no import needed */
 :root{
@@ -74,11 +74,12 @@ body{font-family:var(--fn);background:var(--bg);color:var(--tx);min-height:100vh
 .tb-logout:hover{color:var(--tx);border-color:var(--bdr2)}
 
 /* ── NAV ── */
-#navtabs{display:flex;border-bottom:1px solid var(--bdr);background:var(--bg2);overflow-x:auto;scrollbar-width:none;
-  position:sticky;top:54px;z-index:90}
+#navtabs{display:flex;border-bottom:1px solid var(--bdr);background:var(--bg2);
+  position:sticky;top:54px;z-index:90;width:100%;box-sizing:border-box;overflow:hidden}
 #navtabs::-webkit-scrollbar{display:none}
-.ntab{padding:11px 18px;font-family:var(--fh);font-size:14px;font-weight:700;border:none;
+.ntab{flex:1;padding:10px 4px;font-family:var(--fh);font-size:12px;font-weight:700;border:none;
   background:transparent;color:var(--tx3);cursor:pointer;white-space:nowrap;
+  text-align:center;min-width:0;overflow:hidden;text-overflow:ellipsis;
   border-bottom:2.5px solid transparent;margin-bottom:-1px;transition:color .15s;
   display:flex;align-items:center;gap:6px;flex-shrink:0}
 .ntab:hover{color:var(--tx)}
@@ -387,7 +388,7 @@ body{font-family:var(--fn);background:var(--bg);color:var(--tx);min-height:100vh
     <button class="ntab on" data-tab="live" onclick="switchTab('live')">🔴 Đang đấu</button>
     <button class="ntab" data-tab="schedule" onclick="switchTab('schedule')">📋 Lịch đấu</button>
     <button class="ntab" data-tab="standings" onclick="switchTab('standings')">🏅 BXH</button>
-    <button class="ntab" data-tab="bracket" onclick="switchTab('bracket')">🏆 Cây thi đấu</button>
+    <button class="ntab" data-tab="bracket" onclick="switchTab('bracket')">🏆 Bracket</button>
   </div>
 
   <div id="nd-filter-bar"></div>
